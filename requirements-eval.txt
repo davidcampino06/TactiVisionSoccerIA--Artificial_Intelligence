@@ -1,0 +1,4 @@
+# Optional: Ultralytics + PyTorch for MODEL_RUNTIME=ultralytics, RT-DETR and mAP evaluation.
+# Heavy install (PyTorch). Not needed for the default ONNX runtime.
+-r requirements.txt
+ultralytics>=8.4.0

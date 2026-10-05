@@ -1,0 +1,11 @@
+# TactiVision AI Service - runtime dependencies (no PyTorch needed with MODEL_RUNTIME=onnx)
+fastapi==0.115.2
+uvicorn[standard]==0.30.6
+python-multipart==0.0.32
+python-dotenv==1.0.1
+pydantic>=2.7,<3
+numpy>=1.26,<3
+opencv-python-headless>=4.10,<5
+onnxruntime>=1.18,<2
+# ByteTrack implementation. sv.ByteTrack is removed in supervision 0.31 -> keep the upper bound.
+supervision>=0.26,<0.31
