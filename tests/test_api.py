@@ -89,5 +89,5 @@ def test_simulation_is_clearly_labelled():
         body = client.post("/api/analyze/simulation", headers=API_HEADERS, data={"frames": "60"}).json()
     assert body["mode"] == "SIMULATION_MODE"
     assert body["model"] == "SIMULATION"
-    assert any("SIMULATION MODE" in warning for warning in body["warnings"])
+    assert any("MODO SIMULACIÓN" in warning for warning in body["warnings"])
     assert body["tactical_indicators"]
