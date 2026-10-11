@@ -84,8 +84,8 @@ class JerseyColorTeamClassifier:
                 team_colors_hex={},
                 separation_score=0.0,
                 warnings=[
-                    f"Only {len(track_ids)} player tracks with visible shirts; "
-                    "team separation was not possible."
+                    f"Solo {len(track_ids)} trayectorias de jugadores con camiseta visible; "
+                    "no fue posible separar los equipos."
                 ],
             )
 
@@ -121,12 +121,12 @@ class JerseyColorTeamClassifier:
         warnings: list[str] = []
         if separation_score < 0.5:
             warnings.append(
-                f"Low colour separation between teams (score {separation_score}); "
-                "team-based indicators may be unreliable."
+                f"Baja separación de color entre equipos (puntaje {separation_score}); "
+                "los indicadores por equipo podrían no ser confiables."
             )
         if outliers:
             warnings.append(
-                f"{outliers} tracks did not match either team colour (possible referees or goalkeepers)."
+                f"{outliers} trayectorias no coincidieron con el color de ningún equipo (posibles árbitros o arqueros)."
             )
 
         return TeamAssignmentResult(
