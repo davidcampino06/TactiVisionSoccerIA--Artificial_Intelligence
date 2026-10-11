@@ -1,5 +1,8 @@
 """Pattern detection, possible tactical issues and recommendations (steps 4-7).
 
+User-facing texts (issue, evidence, recommendation) are in Spanish because the app is shown in
+Spanish; rule codes and indicator names stay in English.
+
 Every issue is a POSSIBLE tactical issue. It is derived from explicit rules
 over the indicators, so every output can be explained:
 
@@ -39,94 +42,94 @@ class IssueRule:
 ISSUE_RULES: list[IssueRule] = [
     IssueRule(
         code="EXCESSIVE_DISTANCE_BETWEEN_LINES",
-        issue="Possible tactical issue: excessive distance between defensive and midfield lines",
+        issue="Posible problema táctico: distancia excesiva entre la línea defensiva y el mediocampo",
         indicator="defensive_midfield_distance",
         reliability=0.9,
-        evidence_template="Defence-midfield distance averaged {value} (threshold {threshold}) "
-                            "and exceeded it in {persistence}% of {samples} frames.",
-        recommendation="Review the distance between defensive and midfield lines; consider "
-                        "stepping the back line up or dropping a midfielder to close the gap.",
+        evidence_template="La distancia entre defensa y mediocampo promedió {value} (umbral {threshold}) "
+                            "y lo superó en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar la distancia entre la línea defensiva y el mediocampo; considerar "
+                        "adelantar la línea de fondo o retrasar un mediocampista para cerrar el espacio.",
     ),
     IssueRule(
         code="EXCESSIVE_DISTANCE_BETWEEN_LINES",
-        issue="Possible tactical issue: excessive distance between team lines",
+        issue="Posible problema táctico: distancia excesiva entre las líneas del equipo",
         indicator="largest_line_gap",
         reliability=0.75,
-        evidence_template="Largest gap between consecutive lines averaged {value} (threshold "
-                            "{threshold}) in {persistence}% of {samples} frames. Attack direction unknown.",
-        recommendation="Review the vertical distances between lines in this sequence; set the "
-                        "attack direction to identify which lines are separated.",
+        evidence_template="El mayor espacio entre líneas consecutivas promedió {value} (umbral "
+                            "{threshold}) en el {persistence} % de {samples} cuadros. Dirección de ataque desconocida.",
+        recommendation="Revisar las distancias verticales entre líneas en esta secuencia; indicar la "
+                        "dirección de ataque para identificar qué líneas están separadas.",
     ),
     IssueRule(
         code="LOW_TEAM_COMPACTNESS",
-        issue="Possible tactical issue: low team compactness",
+        issue="Posible problema táctico: baja compactación del equipo",
         indicator="team_compactness_area",
         reliability=0.85,
-        evidence_template="Convex-hull area of the team averaged {value} of the image "
-                            "(threshold {threshold}) in {persistence}% of {samples} frames.",
-        recommendation="Review team compactness when out of possession; reduce the occupied "
-                        "area by shortening distances between lines and between channels.",
+        evidence_template="El área ocupada por el equipo (envolvente convexa) promedió {value} de la imagen "
+                            "(umbral {threshold}) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar la compactación sin balón; reducir el área ocupada acortando "
+                        "las distancias entre líneas y entre carriles.",
     ),
     IssueRule(
         code="LOW_TEAM_COMPACTNESS",
-        issue="Possible tactical issue: large average distance between team-mates",
+        issue="Posible problema táctico: distancia promedio grande entre compañeros",
         indicator="average_player_distance",
         reliability=0.8,
-        evidence_template="Mean distance between team-mates averaged {value} (threshold "
-                            "{threshold}) in {persistence}% of {samples} frames.",
-        recommendation="Review collective positioning; players appear far from each other, "
-                        "which can reduce support and pressing coverage.",
+        evidence_template="La distancia media entre compañeros promedió {value} (umbral "
+                            "{threshold}) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar el posicionamiento colectivo; los jugadores aparecen lejos entre sí, "
+                        "lo que puede reducir los apoyos y la cobertura en la presión.",
     ),
     IssueRule(
         code="EXCESSIVE_SPACING",
-        issue="Possible tactical issue: excessive spacing between nearby players",
+        issue="Posible problema táctico: separación excesiva entre jugadores cercanos",
         indicator="nearest_teammate_distance",
         reliability=0.8,
-        evidence_template="Distance to the closest team-mate averaged {value} (threshold "
-                            "{threshold}) in {persistence}% of {samples} frames.",
-        recommendation="Review support distances; isolated players may lack passing options "
-                        "or defensive cover.",
+        evidence_template="La distancia al compañero más cercano promedió {value} (umbral "
+                            "{threshold}) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar las distancias de apoyo; los jugadores aislados pueden quedarse sin "
+                        "opciones de pase o sin cobertura defensiva.",
     ),
     IssueRule(
         code="DEFENSIVE_LINE_TOO_DEEP",
-        issue="Possible tactical issue: defensive line too deep",
+        issue="Posible problema táctico: línea defensiva demasiado retrasada",
         indicator="defensive_line_position",
         reliability=0.6,
-        evidence_template="Defensive line stayed at {value} from the own-goal image edge "
-                            "(threshold {threshold}) in {persistence}% of {samples} frames. "
-                            "Image-relative metric.",
-        recommendation="Review the height of the defensive line; a very deep line can leave "
-                        "space between defence and midfield. Confirm with a wide camera view.",
+        evidence_template="La línea defensiva se mantuvo a {value} del borde de la imagen de su propio arco "
+                            "(umbral {threshold}) en el {persistence} % de {samples} cuadros. "
+                            "Métrica relativa a la imagen.",
+        recommendation="Revisar la altura de la línea defensiva; una línea muy retrasada puede dejar "
+                        "espacio entre defensa y mediocampo. Confirmar con un plano amplio de cámara.",
     ),
     IssueRule(
         code="HIGH_ZONE_CONCENTRATION",
-        issue="Possible tactical issue: high player concentration in one zone",
+        issue="Posible problema táctico: alta concentración de jugadores en una zona",
         indicator="max_zone_concentration",
         reliability=0.85,
-        evidence_template="The busiest 3x3 zone held {value_percent}% of visible players "
-                            "(threshold {threshold_percent}%) in {persistence}% of {samples} frames.",
-        recommendation="Review occupation of the pitch; too many players in one zone can leave "
-                        "other zones uncovered for switches of play.",
+        evidence_template="La zona más ocupada de la cuadrícula 3x3 reunió el {value_percent} % de los jugadores visibles "
+                            "(umbral {threshold_percent} %) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar la ocupación de la cancha; demasiados jugadores en una zona pueden dejar "
+                        "otras zonas sin cubrir ante cambios de orientación.",
     ),
     IssueRule(
         code="INSUFFICIENT_WIDTH",
-        issue="Possible tactical issue: insufficient width",
+        issue="Posible problema táctico: amplitud insuficiente",
         indicator="team_width",
         reliability=0.75,
-        evidence_template="Team width averaged {value} of the image height (threshold "
-                            "{threshold}) in {persistence}% of {samples} frames.",
-        recommendation="Review width in possession; consider wide players holding the "
-                        "touchline to stretch the opponent's block.",
+        evidence_template="El ancho del equipo promedió {value} de la altura de la imagen (umbral "
+                            "{threshold}) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar la amplitud con balón; considerar extremos pegados a la "
+                        "banda para estirar el bloque rival.",
     ),
     IssueRule(
         code="NUMERICAL_IMBALANCE",
-        issue="Possible tactical issue: numerical imbalance in a zone",
+        issue="Posible problema táctico: desequilibrio numérico en una zona",
         indicator="max_zone_numerical_difference",
         reliability=0.7,
-        evidence_template="One image third showed a difference of {value} visible players "
-                        "between teams (threshold {threshold}) in {persistence}% of {samples} frames.",
-        recommendation="Review numerical balance in the affected third; check whether "
-                        "supporting players arrive on time to equalise the zone.",
+        evidence_template="Un tercio de la imagen mostró una diferencia de {value} jugadores visibles "
+                        "entre equipos (umbral {threshold}) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar el equilibrio numérico en el tercio afectado; verificar si los "
+                        "jugadores de apoyo llegan a tiempo para igualar la zona.",
     ),
 ]
 
@@ -164,6 +167,17 @@ def _confidence(indicator: IndicatorResult, rule: IssueRule, team_separation: fl
     }
     return round(min(max(confidence, 0.0), 1.0), 4), breakdown
 
+def format_number(value: float, decimals: int) -> str:
+    """Formats a number the Spanish way: decimal comma, dot for thousands, no trailing zeros.
+
+    The evidence texts are read by Spanish speakers, for whom "6.777" means six thousand.
+    """
+    text = f"{value:,.{decimals}f}"
+    if decimals:
+        text = text.rstrip("0").rstrip(".")
+    return text.replace(",", "\u0000").replace(".", ",").replace("\u0000", ".")
+
+
 class TacticalInsightGenerator:
     """Applies the issue rules and builds explainable recommendations."""
 
@@ -183,12 +197,12 @@ class TacticalInsightGenerator:
 
                 confidence, breakdown = _confidence(indicator, rule, team_separation)
                 evidence = rule.evidence_template.format(
-                    value=round(indicator.value, 3),
-                    threshold=indicator.threshold,
-                    value_percent=round(indicator.value * 100, 1),
-                    threshold_percent=round((indicator.threshold or 0) * 100, 1),
-                    persistence=round(indicator.exceed_ratio * 100, 1),
-                    samples=indicator.samples,
+                    value=format_number(indicator.value, 3),
+                    threshold=format_number(indicator.threshold or 0, 3),
+                    value_percent=format_number(indicator.value * 100, 1),
+                    threshold_percent=format_number((indicator.threshold or 0) * 100, 1),
+                    persistence=format_number(indicator.exceed_ratio * 100, 1),
+                    samples=format_number(indicator.samples, 0),
                 )
                 issue_id = f"{rule.code}:{indicator.team}:{indicator.name}"
                 severity = _severity(indicator)
