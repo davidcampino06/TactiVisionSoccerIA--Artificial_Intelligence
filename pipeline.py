@@ -109,6 +109,7 @@ class VideoAnalysisPipeline:
         if not records:
             raise VideoProcessingError("No frames could be decoded from the video.")
 
+        # Warnings are shown to the user, so they are written in Spanish.
         warnings = list(extraction_stats["warnings"])
         team_result = extraction_stats["team_classifier"].assign()
         warnings.extend(team_result.warnings)
@@ -121,8 +122,8 @@ class VideoAnalysisPipeline:
         )
         if options.team_a_attack_direction == ATTACK_UNKNOWN:
             warnings.append(
-                "Attack direction not provided: defensive line indicators were replaced by "
-                "'largest_line_gap'."
+                "No se indicó la dirección de ataque: los indicadores de línea defensiva se "
+                "reemplazaron por el mayor espacio entre líneas."
             )
 
         indicators = self._tactical_analyzer.analyze(context)
@@ -133,8 +134,8 @@ class VideoAnalysisPipeline:
             )
         else:
             warnings.append(
-                "Possible tactical issues and recommendations were NOT generated because the video "
-                "does not appear to show a football pitch."
+                "NO se generaron posibles problemas tácticos ni recomendaciones porque el video "
+                "no parece mostrar una cancha de fútbol."
             )
 
         processing_seconds = time.perf_counter() - started
@@ -255,12 +256,12 @@ class VideoAnalysisPipeline:
         warnings: list[str] = []
         if records and frames_without_pitch > len(records) / 2:
             warnings.append(
-                f"{frames_without_pitch} of {len(records)} frames show little grass; the video may "
-                "not be a football broadcast and tactical indicators may not be meaningful."
+                f"{frames_without_pitch} de {len(records)} cuadros muestran poco césped; el video podría "
+                "no ser de fútbol y los indicadores tácticos podrían no ser confiables."
             )
         if filtered_out_people:
             warnings.append(
-                f"{filtered_out_people} person detections outside the pitch were ignored (crowd, bench)."
+                f"Se ignoraron {filtered_out_people} detecciones de personas fuera de la cancha (público, banca)."
             )
         return records, {
             "pitch_visible": bool(records) and frames_without_pitch <= len(records) / 2,
