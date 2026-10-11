@@ -84,5 +84,5 @@ def run_simulation(frames: int = 120, seed: int = 7) -> dict:
         "tactical_indicators": [indicator.to_dict() for indicator in indicators],
         "possible_issues": possible_issues,
         "recommendations": recommendations,
-        "warnings": ["SIMULATION MODE: synthetic positions, not a real video analysis."],
+        "warnings": ["MODO SIMULACIÓN: posiciones sintéticas, no es un análisis de video real."],
     }
