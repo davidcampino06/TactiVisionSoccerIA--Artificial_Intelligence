@@ -52,8 +52,8 @@ def test_issue_generated_with_evidence_and_bounded_confidence():
     issues, recommendations = TacticalInsightGenerator().generate(indicators, team_separation=0.9)
 
     lines_issue = next(i for i in issues if i["code"] == "EXCESSIVE_DISTANCE_BETWEEN_LINES" and i["team"] == TEAM_A)
-    assert lines_issue["issue"].startswith("Possible tactical issue")
-    assert "0.35" in lines_issue["evidence"]
+    assert lines_issue["issue"].startswith("Posible problema táctico")
+    assert "0,35 (umbral 0,22)" in lines_issue["evidence"]
     assert 0.0 < lines_issue["confidence"] <= 1.0
     assert lines_issue["related_indicators"] == ["team_a.defensive_midfield_distance"]
     assert any(r["issue_id"] == lines_issue["id"] for r in recommendations)
@@ -70,3 +70,12 @@ def test_numerical_imbalance_is_match_level():
     context = AnalysisContext([_snapshot(many_left, few_left)], aspect_ratio=1.0)
     indicators = _by_name(TacticalAnalyzer().analyze(context))
     assert indicators["match.max_zone_numerical_difference"].value == 5.0
+
+
+def test_evidence_numbers_use_spanish_format():
+    from tactical_insights import format_number
+
+    assert format_number(6.7771, 3) == "6,777"
+    assert format_number(0.30, 3) == "0,3"
+    assert format_number(100.0, 1) == "100"
+    assert format_number(1234, 0) == "1.234"
