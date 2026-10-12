@@ -29,6 +29,7 @@ from itertools import combinations
 import cv2
 import numpy as np
 
+from proximity_graph import LINK_DISTANCE, proximity_graph
 from team_assignment import TEAM_A, TEAM_B
 
 MIN_PLAYERS_PER_TEAM = 4
@@ -50,6 +51,8 @@ DEFAULT_THRESHOLDS: dict[str, float] = {
     "largest_line_gap": 0.22,              # above -> same issue when direction is unknown
     "max_zone_concentration": 0.45,        # above -> possible high concentration in one zone
     "max_zone_numerical_difference": 3.0,  # at/above -> possible numerical imbalance
+    "network_components": 2.0,             # at/above -> team split into groups with no support between them
+    "isolated_players": 2.0,               # at/above -> several players with no team-mate close by
 }
 
 @dataclass(frozen=True)
@@ -379,8 +382,75 @@ class BallStrategy(IndicatorStrategy):
                 position_y.values.append(snapshot.ball[1])
         return [result for result in (position_x, position_y, visibility) if result.samples > 0]
 
+class ProximityNetworkStrategy(IndicatorStrategy):
+    """Graph of supports between team-mates (proximity_graph.py), explored with BFS each frame."""
+
+    def compute(self, context: AnalysisContext) -> list[IndicatorResult]:
+        results, confidences = [], {}
+        for team in self.teams:
+            components = self._new(
+                context, "network_components", team, "groups",
+                "Groups of team-mates not linked to each other (link = closer than "
+                f"{LINK_DISTANCE} of the image width). 1 = the whole team is connected.", "above")
+            isolated = self._new(
+                context, "isolated_players", team, "players",
+                "Players with no team-mate inside the link distance.", "above")
+            links = self._new(
+                context, "network_average_links", team, "links",
+                "Mean number of close team-mates per player (average degree of the graph).")
+            diameter = self._new(
+                context, "network_diameter", team, "hops",
+                "Longest shortest route, in short passes, between two linked team-mates (BFS).")
+            for snapshot in context.snapshots:
+                players = snapshot.team_players(team)
+                if len(players) < MIN_PLAYERS_PER_TEAM:
+                    continue
+                graph = proximity_graph(((p.track_id, p.x, p.y) for p in players), context.aspect_ratio)
+                components.values.append(float(len(graph.connected_components())))
+                isolated.values.append(float(len(graph.isolated())))
+                links.values.append(2 * graph.edge_count / len(players))
+                diameter.values.append(float(graph.diameter()))
+                confidence = _mean_confidence(players)
+                for indicator in (components, isolated, links, diameter):
+                    confidences.setdefault(indicator.full_name, []).append(confidence)
+            results += [components, isolated, links, diameter]
+        return self._finalize(results, confidences)
+
+
+def network_snapshot(context: AnalysisContext) -> dict | None:
+    """The proximity network of the frame with most visible players, ready to draw.
+
+    For each team: nodes (track, position, degree, group), links, groups, isolated players,
+    diameter and the BFS hops between every pair of linked players."""
+    candidates = [snapshot for snapshot in context.snapshots if snapshot.players]
+    if not candidates:
+        return None
+    best = max(candidates, key=lambda snapshot: len(snapshot.players))
+    teams = {}
+    for team in (TEAM_A, TEAM_B):
+        players = best.team_players(team)
+        if len(players) < 2:
+            continue
+        graph = proximity_graph(((p.track_id, p.x, p.y) for p in players), context.aspect_ratio)
+        groups = graph.connected_components()
+        group_of = {node: index for index, group in enumerate(groups) for node in group}
+        teams[team] = {
+            "nodes": [{"track_id": p.track_id, "x": round(p.x, 4), "y": round(p.y, 4),
+                       "degree": graph.degree(p.track_id), "group": group_of[p.track_id]} for p in players],
+            "links": [[a, b] for a, b in graph.edges()],
+            "groups": len(groups),
+            "isolated": graph.isolated(),
+            "diameter": graph.diameter(),
+            "hops": {str(source): {str(target): hops for target, hops in reached.items()}
+                     for source, reached in graph.all_hops().items()},
+        }
+    return {"frame_number": best.frame_number, "timestamp_seconds": round(best.timestamp_seconds, 3),
+            "link_distance": LINK_DISTANCE, "teams": teams}
+
+
 def default_strategies() -> list[IndicatorStrategy]:
-    return [TeamShapeStrategy(), CompactnessStrategy(), LinesStrategy(), ZoneOccupationStrategy(), BallStrategy()]
+    return [TeamShapeStrategy(), CompactnessStrategy(), LinesStrategy(), ZoneOccupationStrategy(), BallStrategy(),
+            ProximityNetworkStrategy()]
 
 class TacticalAnalyzer:
     """Runs a configurable list of indicator strategies."""

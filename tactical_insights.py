@@ -131,6 +131,27 @@ ISSUE_RULES: list[IssueRule] = [
         recommendation="Revisar el equilibrio numérico en el tercio afectado; verificar si los "
                         "jugadores de apoyo llegan a tiempo para igualar la zona.",
     ),
+    IssueRule(
+        code="DISCONNECTED_TEAM",
+        issue="Posible problema táctico: equipo partido en grupos sin conexión",
+        indicator="network_components",
+        reliability=0.7,
+        evidence_template="En la red de cercanía (grafo recorrido con BFS) el equipo formó en promedio {value} "
+                            "grupos sin compañeros cerca entre sí (umbral {threshold}) en el {persistence} % "
+                            "de {samples} cuadros.",
+        recommendation="Revisar los apoyos entre líneas; acercar un jugador que una los grupos para que el "
+                        "balón pueda circular con pases cortos y la presión tenga cobertura.",
+    ),
+    IssueRule(
+        code="ISOLATED_PLAYERS",
+        issue="Posible problema táctico: jugadores sin apoyo cercano",
+        indicator="isolated_players",
+        reliability=0.65,
+        evidence_template="En promedio {value} jugadores quedaron sin ningún compañero cerca en la red de "
+                            "cercanía (umbral {threshold}) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar la posición de los jugadores aislados; un apoyo cercano les da una opción "
+                        "de pase y una cobertura si pierden el balón.",
+    ),
 ]
 
 def _severity(indicator: IndicatorResult) -> str:

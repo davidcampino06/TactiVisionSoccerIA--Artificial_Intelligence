@@ -77,6 +77,8 @@ class AnalysisResponse(BaseModel):
     detections: list[dict[str, Any]]
     tracking: list[dict[str, Any]]
     tactical_indicators: list[TacticalIndicatorOut]
+    # Graph of supports between team-mates in the busiest frame (proximity_graph.py), with BFS hops.
+    proximity_network: dict[str, Any] | None = None
     possible_issues: list[PossibleIssueOut]
     recommendations: list[RecommendationOut]
     warnings: list[str]
