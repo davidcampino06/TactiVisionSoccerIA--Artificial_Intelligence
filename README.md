@@ -25,6 +25,7 @@ Cada capa está separada y es explicable:
 | Tracking | `tracking.py` | ByteTrack → `track_id` temporal (sin biometría) |
 | Equipos | `team_assignment.py` | Clustering de color de camiseta → TEAM_A / TEAM_B / UNASSIGNED |
 | Tactical Metrics | `tactical_analysis.py` | Indicadores (patrón Strategy) |
+| Red de cercanía | `proximity_graph.py` | Grafo de apoyos entre compañeros recorrido con BFS (ver abajo) |
 | Issues + Recommendations | `tactical_insights.py` | Reglas con umbral, persistencia, evidencia y confianza |
 | Facade | `pipeline.py` | `VideoAnalysisPipeline.analyze_video()` orquesta todo |
 | SIMULATION MODE | `simulation.py` | Posiciones sintéticas, siempre etiquetadas `SIMULATION_MODE` |
@@ -57,11 +58,34 @@ Respuesta (resumen):
   "detections": [...],
   "tracking": [{"track_id": 3, "label": "Player Track 3", "team": "TEAM_A", "trajectory": [[frame, x, y]]}],
   "tactical_indicators": [{"name": "team_a.team_width", "value": 0.41, "unit": "frame_height_ratio", "threshold": 0.3}],
+  "proximity_network": {"frame_number": 42, "link_distance": 0.2, "teams": {"TEAM_A": {"nodes": [...], "links": [[3, 7]], "groups": 2, "isolated": [9], "diameter": 3, "hops": {"3": {"7": 1}}}}},
   "possible_issues": [{"issue": "Possible tactical issue: ...", "evidence": "...", "confidence": 0.62, "related_indicators": [...]}],
   "recommendations": [...],
   "warnings": [...]
 }
 ```
+
+## Red de cercanía: grafo + BFS
+
+Cada jugador visible de un equipo es un **nodo**. Dos compañeros quedan unidos por una **arista**
+cuando están a menos de `LINK_DISTANCE` (0,2 del ancho de la imagen): cerca para un pase corto o una
+cobertura. Sobre ese grafo, la búsqueda en anchura (BFS) responde preguntas tácticas:
+
+| Indicador | Qué mide | Cómo se calcula |
+|---|---|---|
+| `network_components` | En cuántos grupos sin conexión quedó el equipo (1 = todo conectado) | Componentes conexas: un BFS desde cada nodo aún no visitado |
+| `isolated_players` | Jugadores sin ningún compañero cerca | Nodos de grado 0 |
+| `network_average_links` | Compañeros cercanos por jugador | Grado medio = 2·aristas / nodos |
+| `network_diameter` | La ruta más larga, en pases cortos, entre dos compañeros conectados | BFS desde cada nodo, máximo de las distancias |
+
+Complejidad con n jugadores y m aristas: construir el grafo O(n²), un BFS O(n + m), todas las
+componentes O(n + m), todas las distancias O(n·(n + m)). La cola del BFS es propia (arreglo + índice
+del frente, encolar y desencolar en O(1)).
+
+Las reglas `DISCONNECTED_TEAM` y `ISOLATED_PLAYERS` generan posibles problemas cuando el equipo se
+parte en 2 o más grupos, o deja 2 o más jugadores sin apoyo, en la mayoría de los cuadros. La
+respuesta incluye `proximity_network`: la red del cuadro con más jugadores, lista para dibujar, con
+las distancias BFS entre cada par de jugadores conectados.
 
 ## Ejecutar localmente
 
