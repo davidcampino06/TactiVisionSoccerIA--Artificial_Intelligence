@@ -12,7 +12,9 @@ from __future__ import annotations
 import numpy as np
 
 from pipeline import MODE_SIMULATION
-from tactical_analysis import ATTACK_LEFT_TO_RIGHT, AnalysisContext, FrameSnapshot, PlayerPosition, TacticalAnalyzer
+from tactical_analysis import (
+    ATTACK_LEFT_TO_RIGHT, AnalysisContext, FrameSnapshot, PlayerPosition, TacticalAnalyzer, network_snapshot,
+)
 from tactical_insights import TacticalInsightGenerator
 from team_assignment import TEAM_A, TEAM_B
 
@@ -82,6 +84,7 @@ def run_simulation(frames: int = 120, seed: int = 7) -> dict:
             for track_id, points in tracking.items()
         ],
         "tactical_indicators": [indicator.to_dict() for indicator in indicators],
+        "proximity_network": network_snapshot(context),
         "possible_issues": possible_issues,
         "recommendations": recommendations,
         "warnings": ["MODO SIMULACIÓN: posiciones sintéticas, no es un análisis de video real."],
