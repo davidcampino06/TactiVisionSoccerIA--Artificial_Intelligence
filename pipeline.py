@@ -29,6 +29,7 @@ from tactical_analysis import (
     FrameSnapshot,
     PlayerPosition,
     TacticalAnalyzer,
+    network_snapshot,
 )
 from tactical_insights import TacticalInsightGenerator
 from team_assignment import UNASSIGNED, JerseyColorTeamClassifier
@@ -180,6 +181,7 @@ class VideoAnalysisPipeline:
             "detections": self._detections_payload(records, team_result.track_teams) if options.include_detections else [],
             "tracking": self._tracking_payload(records, team_result.track_teams, video_info),
             "tactical_indicators": [indicator.to_dict() for indicator in indicators],
+            "proximity_network": network_snapshot(context),
             "possible_issues": possible_issues,
             "recommendations": recommendations,
             "warnings": warnings,
