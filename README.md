@@ -1,5 +1,10 @@
 # TactivisionSoccerIA-ai
 
+[![CI](https://github.com/davidcampino06/TactiVisionSoccerIA--Artificial_Intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/davidcampino06/TactiVisionSoccerIA--Artificial_Intelligence/actions/workflows/ci.yml)
+
+Integración continua (GitHub Actions, `.github/workflows/ci.yml`): en cada push a `main` y en cada
+pull request se ejecutan pruebas del servicio de IA, incluido el modelo de detección.
+
 AI Service de **TactiVision IA**. Analiza videos de fútbol y devuelve datos estructurados
 (detecciones, tracking, indicadores tácticos, posibles problemas tácticos con evidencia y
 confianza, y recomendaciones).
