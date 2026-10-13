@@ -1,0 +1,41 @@
+# Runs the AI service tests. The YOLO26n ONNX model is downloaded once and cached,
+# so the real detection pipeline is also exercised on a synthetic video.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Pruebas (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Modelo de detección en caché
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: model-yolo26n-onnx-v1
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Pruebas
+        run: python -m pytest -q -rs
