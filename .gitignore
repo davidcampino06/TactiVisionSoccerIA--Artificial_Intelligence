@@ -14,6 +14,9 @@ models/
 *.onnx
 *.part
 
+# Broadcast clips used for calibration: never committed (copyright and size)
+calibration/clips/
+
 # Temporary uploads and evaluation output
 tmp/
 evaluation_results.json
