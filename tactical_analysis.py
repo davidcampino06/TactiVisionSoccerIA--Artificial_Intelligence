@@ -23,7 +23,7 @@ metrics can be added without modifying existing code (Open/Closed).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import combinations
 
 import cv2
@@ -40,14 +40,15 @@ ATTACK_RIGHT_TO_LEFT = "right_to_left"
 ATTACK_UNKNOWN = "unknown"
 
 # Heuristic reference thresholds for a main broadcast camera.
-# They are configurable baselines that must be calibrated with real footage.
+# Calibrated with 7 labelled broadcast clips (see CALIBRATION.md): only the values that found
+# more of the problems a person saw, without adding false alarms, were changed.
 DEFAULT_THRESHOLDS: dict[str, float] = {
     "team_width": 0.30,                    # below -> possible insufficient width
-    "average_player_distance": 0.30,       # above -> possible low compactness
-    "team_compactness_area": 0.25,         # above -> possible low compactness
-    "nearest_teammate_distance": 0.15,     # above -> possible excessive spacing
+    "average_player_distance": 0.28,       # above -> possible low compactness (was 0.30)
+    "team_compactness_area": 0.12,         # above -> possible low compactness (was 0.25: never fired)
+    "nearest_teammate_distance": 0.115,    # above -> possible excessive spacing (was 0.15)
     "defensive_line_position": 0.15,       # below -> possible line too deep (image relative)
-    "defensive_midfield_distance": 0.22,   # above -> possible excessive distance between lines
+    "defensive_midfield_distance": 0.18,   # above -> possible excessive distance between lines (was 0.22)
     "largest_line_gap": 0.22,              # above -> same issue when direction is unknown
     "max_zone_concentration": 0.45,        # above -> possible high concentration in one zone
     "max_zone_numerical_difference": 3.0,  # at/above -> possible numerical imbalance
@@ -66,6 +67,27 @@ MIN_CENTROID_GAP = 0.03         # teams closer than this (image width) do not vo
 # Possession phases (PossessionPhaseStrategy), in frame-width units.
 BALL_CONTROL_DISTANCE = 0.06  # the nearest player closer than this has the ball; otherwise it is loose
 PRESSURE_RADIUS = 0.10        # defenders closer than this to the ball are pressing it
+
+# Phase of play. The ball is seen in few frames, so possession is remembered for a while after
+# the last frame where a team clearly had it (a possession in football lasts several seconds).
+POSSESSION_MEMORY_SECONDS = 2.0
+PHASE_DEFENDING = "defending"          # the rival has the ball
+PHASE_NOT_DEFENDING = "not_defending"  # the team has the ball, or nobody is known to have it
+
+# Indicators judged only in one phase. A team that attacks fast spreads out on purpose, so its
+# shape is a problem only while defending; width matters while the team is not defending.
+# Measured with labelled real clips (CALIBRATION.md): false alarms went from 13 to 3.
+INDICATOR_PHASE: dict[str, str] = {
+    "average_player_distance": PHASE_DEFENDING,
+    "team_compactness_area": PHASE_DEFENDING,
+    "nearest_teammate_distance": PHASE_DEFENDING,
+    "defensive_midfield_distance": PHASE_DEFENDING,
+    "largest_line_gap": PHASE_DEFENDING,
+    "max_zone_concentration": PHASE_DEFENDING,
+    "network_components": PHASE_DEFENDING,
+    "isolated_players": PHASE_DEFENDING,
+    "team_width": PHASE_NOT_DEFENDING,
+}
 
 @dataclass(frozen=True)
 class PlayerPosition:
@@ -120,6 +142,7 @@ class IndicatorResult:
     threshold_direction: str | None = None  # "above" or "below" means "problem when value is ..."
     description: str = ""
     mean_detection_confidence: float = 0.0
+    phase: str | None = None  # PHASE_DEFENDING / PHASE_NOT_DEFENDING when measured in one phase only
 
     @property
     def samples(self) -> int:
@@ -162,6 +185,7 @@ class IndicatorResult:
             "std": round(float(array.std()), 4),
             "samples": self.samples,
             "description": self.description,
+            "phase": self.phase,
         }
 
 def _mean_confidence(players: list[PlayerPosition]) -> float:
@@ -495,14 +519,18 @@ class PossessionPhaseStrategy(IndicatorStrategy):
 
     @staticmethod
     def ball_owner(context: AnalysisContext, snapshot: FrameSnapshot) -> str | None:
-        """Team of the player nearest to the ball, or None when the ball is loose."""
-        if not snapshot.ball or not snapshot.players:
+        """Team of the player nearest to the ball, or None when the ball is loose.
+
+        Only players of a team count: a referee or an unmatched goalkeeper (UNASSIGNED) next to
+        the ball does not own it."""
+        players = [player for player in snapshot.players if player.team in (TEAM_A, TEAM_B)]
+        if not snapshot.ball or not players:
             return None
         ball = np.array([snapshot.ball[0], snapshot.ball[1] * context.aspect_ratio])
-        points = context.to_metric_points(snapshot.players)
+        points = context.to_metric_points(players)
         distances = np.linalg.norm(points - ball, axis=1)
         nearest = int(distances.argmin())
-        return snapshot.players[nearest].team if distances[nearest] < BALL_CONTROL_DISTANCE else None
+        return players[nearest].team if distances[nearest] < BALL_CONTROL_DISTANCE else None
 
 
 def network_snapshot(context: AnalysisContext) -> dict | None:
@@ -599,14 +627,66 @@ def default_strategies() -> list[IndicatorStrategy]:
     return [TeamShapeStrategy(), CompactnessStrategy(), LinesStrategy(), ZoneOccupationStrategy(), BallStrategy(),
             ProximityNetworkStrategy(), PossessionPhaseStrategy()]
 
-class TacticalAnalyzer:
-    """Runs a configurable list of indicator strategies."""
+def possession_by_frame(context: AnalysisContext) -> list[str | None]:
+    """Team with the ball in every snapshot, or None when unknown.
 
-    def __init__(self, strategies: list[IndicatorStrategy] | None = None) -> None:
+    A team keeps the ball for POSSESSION_MEMORY_SECONDS after the last frame where one of its
+    players was next to it, until the other team is seen with it."""
+    owners: list[str | None] = []
+    last_owner, last_seen = None, float("-inf")
+    for snapshot in context.snapshots:
+        owner = PossessionPhaseStrategy.ball_owner(context, snapshot)
+        if owner is not None:
+            last_owner, last_seen = owner, snapshot.timestamp_seconds
+        recent = snapshot.timestamp_seconds - last_seen <= POSSESSION_MEMORY_SECONDS
+        owners.append(last_owner if recent else None)
+    return owners
+
+
+def in_phase(phase: str, owner: str | None, team: str) -> bool:
+    """Whether a frame where ``owner`` has the ball belongs to ``phase`` for ``team``."""
+    rival = TEAM_B if team == TEAM_A else TEAM_A
+    return owner == rival if phase == PHASE_DEFENDING else owner != rival
+
+
+class TacticalAnalyzer:
+    """Runs a configurable list of indicator strategies.
+
+    With ``by_phase`` (default), the indicators in INDICATOR_PHASE are measured again only over
+    the frames of their phase, team by team; a team without frames in that phase gets no value
+    for them (not measured, instead of judged in the wrong phase)."""
+
+    def __init__(self, strategies: list[IndicatorStrategy] | None = None, by_phase: bool = True) -> None:
         self._strategies = strategies if strategies is not None else default_strategies()
+        self._by_phase = by_phase
 
     def analyze(self, context: AnalysisContext) -> list[IndicatorResult]:
         """Runs every strategy on the context and joins their indicators."""
+        indicators = self._run(context)
+        if not self._by_phase:
+            return indicators
+
+        owners = possession_by_frame(context)
+        replaced: dict[str, IndicatorResult | None] = {}
+        for team in (TEAM_A, TEAM_B):
+            for phase in (PHASE_DEFENDING, PHASE_NOT_DEFENDING):
+                frames = [s for s, owner in zip(context.snapshots, owners) if in_phase(phase, owner, team)]
+                measured = {i.full_name: i for i in self._run(replace(context, snapshots=frames))} if frames else {}
+                for name, indicator_phase in INDICATOR_PHASE.items():
+                    if indicator_phase != phase:
+                        continue
+                    key = f"{team.lower()}.{name}"
+                    found = measured.get(key)
+                    if found is not None:
+                        found.phase = phase
+                    replaced[key] = found
+
+        result = [replaced.get(i.full_name, i) if i.full_name in replaced else i for i in indicators]
+        present = {i.full_name for i in indicators}
+        result += [i for key, i in replaced.items() if key not in present and i is not None]
+        return [i for i in result if i is not None]
+
+    def _run(self, context: AnalysisContext) -> list[IndicatorResult]:
         indicators: list[IndicatorResult] = []
         for strategy in self._strategies:
             indicators.extend(strategy.compute(context))
