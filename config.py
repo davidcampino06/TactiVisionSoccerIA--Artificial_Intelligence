@@ -44,6 +44,9 @@ class Settings:
     )
     default_frame_stride: int = field(default_factory=lambda: _env_int("FRAME_STRIDE", 3))
     default_max_frames: int = field(default_factory=lambda: _env_int("MAX_FRAMES", 300))
+    # CPU threads for the model and OpenCV. Render Free gives a fraction of one CPU: more threads
+    # only make them wait for each other (and spin), so 1 is the fastest there. 0 = automatic.
+    inference_threads: int = field(default_factory=lambda: _env_int("INFERENCE_THREADS", 1))
     max_upload_size_mb: int = field(default_factory=lambda: _env_int("MAX_UPLOAD_SIZE_MB", 200))
     api_key: str = field(default_factory=lambda: os.getenv("AI_SERVICE_API_KEY", ""))
     temp_dir: Path = field(default_factory=lambda: Path(os.getenv("TEMP_DIR", "tmp")))
