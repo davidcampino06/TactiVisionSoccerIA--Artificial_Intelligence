@@ -12,6 +12,24 @@ confianza, y recomendaciones).
 > Solo el **Backend** llama a este servicio. El Frontend **nunca** se comunica con él.
 > Si `AI_SERVICE_API_KEY` está definido, cada análisis exige el header `X-API-Key`.
 
+## Seguridad del servicio
+
+Solo el backend llama a este servicio. Las protecciones están en `main.py` y `request_guard.py`:
+
+| Protección | Cómo funciona |
+|---|---|
+| Clave compartida | Cada análisis exige `X-API-Key`; se compara con `secrets.compare_digest` (tiempo constante, no revela cuántos caracteres coinciden). |
+| Límite de peticiones | Ventana deslizante por cliente (cola FIFO con las horas de sus últimas peticiones): más de `RATE_LIMIT_PER_MINUTE` en 60 s → 429 con `Retry-After`. Va antes de la clave, así que adivinarla también queda frenado. |
+| Tipo real del archivo | Además de la extensión se revisan los primeros bytes: MP4/MOV (caja ISO-BMFF), AVI (`RIFF…AVI `), MKV/WebM (firma EBML). Un `.mp4` que en realidad es texto o una imagen se rechaza con 400 antes de guardarse o llegar a OpenCV. |
+| Tamaño máximo | `MAX_UPLOAD_SIZE_MB`; se corta mientras se recibe, sin cargar el archivo entero en memoria. |
+| Cabeceras HTTP | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`. |
+
+Logs (`log_setup.py`): cada análisis registra su inicio y fin (tamaño, cuadros, segundos, posibles
+problemas), y quedan avisos de las peticiones rechazadas (clave inválida, archivo falso, límite). Un
+filtro oculta claves, tokens y contraseñas antes de escribir cualquier línea.
+
+Pruebas: `tests/test_security.py` y `tests/test_logging.py`.
+
 ## Pipeline
 
 ```
@@ -69,6 +87,30 @@ Respuesta (resumen):
   "warnings": [...]
 }
 ```
+
+## Fases con y sin balón (`PossessionPhaseStrategy`)
+
+En cada cuadro con el balón visible, lo tiene el equipo del jugador más cercano si está a menos de
+`BALL_CONTROL_DISTANCE` (0,06 del ancho); si nadie está tan cerca, el balón está suelto y el cuadro
+no cuenta. Con eso se miden tres indicadores nuevos:
+
+| Indicador | Equipo | Qué mide | Posible problema |
+|---|---|---|---|
+| `pressure_on_ball` | Sin balón | Jugadores a menos de `PRESSURE_RADIUS` (0,1) del balón | `LOW_BALL_PRESSURE`: nadie presiona |
+| `attacking_width` | Con balón | Ancho que ocupa el equipo en la imagen | `NARROW_ATTACK`: menos del 35 % |
+| `players_ahead_of_ball` | Con balón | Jugadores por delante del balón hacia el arco rival (necesita la dirección de ataque) | `NO_ATTACKING_DEPTH`: ninguno por delante |
+
+Cada indicador tiene su prueba con posiciones hechas a mano en `tests/test_indicators.py`, igual que
+los anteriores (forma, compactación, líneas, zonas, balón y red de cercanía).
+
+## Dirección de ataque automática
+
+Si el usuario no indica hacia dónde ataca el Equipo A, `detect_attack_direction` la estima: cada
+equipo se coloca entre el balón y su propio arco, así que en promedio el que defiende el arco
+izquierdo está más a la izquierda que su rival. Cada cuadro con ambos equipos visibles y separados
+(más de 0,03 del ancho entre sus posiciones medias) vota; se acepta con al menos 8 votos y un 70 %
+de acuerdo, y si no, queda desconocida. El resultado lo explica en `warnings` y en `parameters`
+(`attack_direction_source`: `user`, `detected` o `unknown`). La dirección del usuario siempre manda.
 
 ## Red de cercanía: grafo + BFS
 
