@@ -31,6 +31,7 @@ TEAM_B_SHAPE = [  # 4-3-3 compact block
 ]
 
 def run_simulation(frames: int = 120, seed: int = 7) -> dict:
+    """Builds a deterministic synthetic match (same seed, same result) and analyses it."""
     random = np.random.default_rng(seed)
     snapshots: list[FrameSnapshot] = []
     tracking: dict[int, list] = {}
