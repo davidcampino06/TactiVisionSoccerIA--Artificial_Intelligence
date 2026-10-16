@@ -133,6 +133,7 @@ class ObjectDetector(ABC):
         """Return players and balls found in a BGR frame."""
 
     def describe(self) -> dict:
+        """Model information shown by GET /api/model."""
         return {
             "model": self.spec.name,
             "family": self.spec.family,
@@ -253,13 +254,14 @@ class OnnxYoloDetector(ObjectDetector):
         return detections
 
     @staticmethod
-    def _decode_end_to_end(raw_output: np.ndarray):
+    def _decode_end_to_end(raw_output: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """YOLO26 export: (1, max_detections, 6) -> x1, y1, x2, y2, score, class_id."""
         rows = raw_output[0]
         return rows[:, :4], rows[:, 4], rows[:, 5].astype(int)
 
     @staticmethod
-    def _decode_with_nms(raw_output: np.ndarray, confidence_threshold: float):
+    def _decode_with_nms(raw_output: np.ndarray, confidence_threshold: float
+                         ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """YOLO11 export: (1, 4 + classes, anchors) -> boxes in cx, cy, w, h plus class scores."""
         predictions = raw_output[0].T
         class_scores = predictions[:, 4:]
@@ -337,6 +339,7 @@ class DetectorFactory:
 
     @staticmethod
     def create(model_name: str, runtime: str, model_dir: Path, auto_download: bool) -> ObjectDetector:
+        """Factory Method: builds the detector for a model name and runtime, downloading weights if allowed."""
         spec = SUPPORTED_MODELS.get(model_name)
         if spec is None:
             raise ModelLoadError(
