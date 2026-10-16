@@ -4,10 +4,12 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 class HealthResponse(BaseModel):
+    """Body of GET /api/health."""
     service: str
     status: str
 
 class ModelInfoResponse(BaseModel):
+    """Body of GET /api/model."""
     model: str
     runtime: str
     tracker: str
@@ -20,6 +22,7 @@ class ModelInfoResponse(BaseModel):
     detected_classes: dict[str, str] = Field(default_factory=dict)
 
 class TacticalIndicatorOut(BaseModel):
+    """One tactical indicator with its threshold and how often it was crossed."""
     name: str
     indicator: str
     team: str
@@ -35,6 +38,7 @@ class TacticalIndicatorOut(BaseModel):
     description: str
 
 class PossibleIssueOut(BaseModel):
+    """A possible tactical issue with its evidence and the breakdown of its confidence."""
     id: str
     code: str
     issue: str
@@ -46,6 +50,7 @@ class PossibleIssueOut(BaseModel):
     related_indicators: list[str]
 
 class RecommendationOut(BaseModel):
+    """A review suggestion linked to one possible issue."""
     issue_id: str
     title: str
     team: str
@@ -56,6 +61,7 @@ class RecommendationOut(BaseModel):
     related_indicators: list[str]
 
 class AnalysisResponse(BaseModel):
+    """Body of POST /api/analyze and /api/analyze/simulation."""
     status: Literal["COMPLETED"]
     mode: Literal["REAL_VIDEO_ANALYSIS", "SIMULATION_MODE"]
     model: str

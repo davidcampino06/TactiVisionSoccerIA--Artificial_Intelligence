@@ -53,10 +53,23 @@ DEFAULT_THRESHOLDS: dict[str, float] = {
     "max_zone_numerical_difference": 3.0,  # at/above -> possible numerical imbalance
     "network_components": 2.0,             # at/above -> team split into groups with no support between them
     "isolated_players": 2.0,               # at/above -> several players with no team-mate close by
+    "pressure_on_ball": 0.5,               # at/below -> nobody from the defending team near the ball
+    "attacking_width": 0.35,               # at/below -> narrow attack (pitch width in the image)
+    "players_ahead_of_ball": 0.5,          # at/below -> no attacker ahead of the ball (no depth)
 }
+
+# Automatic attack direction (detect_attack_direction).
+MIN_DIRECTION_FRAMES = 8        # frames where both teams are visible and clearly apart
+MIN_DIRECTION_AGREEMENT = 0.7   # share of those frames that must agree
+MIN_CENTROID_GAP = 0.03         # teams closer than this (image width) do not vote
+
+# Possession phases (PossessionPhaseStrategy), in frame-width units.
+BALL_CONTROL_DISTANCE = 0.06  # the nearest player closer than this has the ball; otherwise it is loose
+PRESSURE_RADIUS = 0.10        # defenders closer than this to the ball are pressing it
 
 @dataclass(frozen=True)
 class PlayerPosition:
+    """A tracked player in one frame, in image-relative coordinates (0..1)."""
     track_id: int
     team: str
     x: float  # 0..1 of image width (foot point)
@@ -65,6 +78,7 @@ class PlayerPosition:
 
 @dataclass
 class FrameSnapshot:
+    """Everything the indicators need from one analysed frame."""
     frame_number: int
     timestamp_seconds: float
     players: list[PlayerPosition]
@@ -75,6 +89,7 @@ class FrameSnapshot:
 
 @dataclass
 class AnalysisContext:
+    """Input shared by every indicator strategy: the snapshots and the analysis settings."""
     snapshots: list[FrameSnapshot]
     aspect_ratio: float  # image height / image width
     team_a_attack_direction: str = ATTACK_UNKNOWN
@@ -131,6 +146,7 @@ class IndicatorResult:
         return f"{self.team.lower()}.{self.name}"
 
     def to_dict(self) -> dict:
+        """Serialises the indicator for the JSON response, with its distribution."""
         array = np.array(self.values) if self.values else np.array([0.0])
         return {
             "name": self.full_name,
@@ -161,7 +177,8 @@ class IndicatorStrategy(ABC):
         """Return indicators computed from the context."""
 
     @staticmethod
-    def _new(context, name, team, unit, description, direction=None) -> IndicatorResult:
+    def _new(context: AnalysisContext, name: str, team: str, unit: str, description: str,
+             direction: str | None = None) -> IndicatorResult:
         return IndicatorResult(
             name=name,
             team=team,
@@ -173,7 +190,7 @@ class IndicatorStrategy(ABC):
         )
 
     @staticmethod
-    def _finalize(results: list[IndicatorResult], confidences: dict[str, list[float]]):
+    def _finalize(results: list[IndicatorResult], confidences: dict[str, list[float]]) -> list[IndicatorResult]:
         for result in results:
             values = confidences.get(result.full_name, [])
             result.mean_detection_confidence = round(float(np.mean(values)), 4) if values else 0.0
@@ -350,7 +367,8 @@ class ZoneOccupationStrategy(IndicatorStrategy):
         row = min(int(player.y * self.GRID_ROWS), self.GRID_ROWS - 1)
         return row * self.GRID_COLUMNS + column
 
-    def _numerical_balance(self, context: AnalysisContext, confidences) -> list[IndicatorResult]:
+    def _numerical_balance(self, context: AnalysisContext,
+                           confidences: dict[str, list[float]]) -> list[IndicatorResult]:
         imbalance = self._new(
             context, "max_zone_numerical_difference", "MATCH", "players",
             "Largest difference in visible players between both teams inside one image third.", "above")
@@ -417,6 +435,76 @@ class ProximityNetworkStrategy(IndicatorStrategy):
         return self._finalize(results, confidences)
 
 
+class PossessionPhaseStrategy(IndicatorStrategy):
+    """Indicators that depend on which team has the ball.
+
+    The ball is controlled by the team of the player nearest to it, when that player is closer
+    than BALL_CONTROL_DISTANCE; frames with a loose or invisible ball are skipped. Then:
+
+        pressure_on_ball       defending team: players within PRESSURE_RADIUS of the ball
+        attacking_width        attacking team: vertical spread in the image (pitch width)
+        players_ahead_of_ball  attacking team: players beyond the ball towards the rival goal
+                               (needs the attack direction, given or detected)
+    """
+
+    def compute(self, context: AnalysisContext) -> list[IndicatorResult]:
+        confidences: dict[str, list[float]] = {}
+        pressure = {team: self._new(
+            context, "pressure_on_ball", team, "players",
+            f"Players of the team without the ball closer than {PRESSURE_RADIUS} of the image width "
+            "to the ball.", "below") for team in self.teams}
+        width = {team: self._new(
+            context, "attacking_width", team, "frame_height_ratio",
+            "Vertical spread of the team in the image while it has the ball (attacking width).",
+            "below") for team in self.teams}
+        ahead = {team: self._new(
+            context, "players_ahead_of_ball", team, "players",
+            "Players of the team with the ball placed beyond it towards the rival goal (depth).",
+            "below") for team in self.teams}
+
+        for snapshot in context.snapshots:
+            if not snapshot.ball:
+                continue
+            squads = {team: snapshot.team_players(team) for team in self.teams}
+            if any(len(players) < MIN_PLAYERS_PER_TEAM for players in squads.values()):
+                continue
+            owner = self.ball_owner(context, snapshot)
+            if owner is None:
+                continue
+            defender = TEAM_B if owner == TEAM_A else TEAM_A
+            ball = np.array([snapshot.ball[0], snapshot.ball[1] * context.aspect_ratio])
+
+            defenders = context.to_metric_points(squads[defender])
+            pressure[defender].values.append(float((np.linalg.norm(defenders - ball, axis=1) < PRESSURE_RADIUS).sum()))
+            confidences.setdefault(pressure[defender].full_name, []).append(_mean_confidence(squads[defender]))
+
+            attackers = squads[owner]
+            ys = [player.y for player in attackers]
+            width[owner].values.append(max(ys) - min(ys))
+            confidences.setdefault(width[owner].full_name, []).append(_mean_confidence(attackers))
+
+            goal_side = context.own_goal_side(owner)
+            if goal_side:
+                towards_rival = 1 if goal_side == "left" else -1
+                beyond = sum(1 for player in attackers if (player.x - snapshot.ball[0]) * towards_rival > 0)
+                ahead[owner].values.append(float(beyond))
+                confidences.setdefault(ahead[owner].full_name, []).append(_mean_confidence(attackers))
+
+        results = [indicator for team in self.teams for indicator in (pressure[team], width[team], ahead[team])]
+        return self._finalize(results, confidences)
+
+    @staticmethod
+    def ball_owner(context: AnalysisContext, snapshot: FrameSnapshot) -> str | None:
+        """Team of the player nearest to the ball, or None when the ball is loose."""
+        if not snapshot.ball or not snapshot.players:
+            return None
+        ball = np.array([snapshot.ball[0], snapshot.ball[1] * context.aspect_ratio])
+        points = context.to_metric_points(snapshot.players)
+        distances = np.linalg.norm(points - ball, axis=1)
+        nearest = int(distances.argmin())
+        return snapshot.players[nearest].team if distances[nearest] < BALL_CONTROL_DISTANCE else None
+
+
 def network_snapshot(context: AnalysisContext) -> dict | None:
     """The proximity network of the frame with most visible players, ready to draw.
 
@@ -448,9 +536,68 @@ def network_snapshot(context: AnalysisContext) -> dict | None:
             "link_distance": LINK_DISTANCE, "teams": teams}
 
 
+@dataclass(frozen=True)
+class DirectionEstimate:
+    """Result of the automatic attack direction vote for TEAM_A."""
+    direction: str      # ATTACK_LEFT_TO_RIGHT, ATTACK_RIGHT_TO_LEFT or ATTACK_UNKNOWN (for TEAM_A)
+    agreement: float    # share of the voting frames that agree with it (0..1)
+    frames: int         # frames that voted
+
+
+def detect_attack_direction(snapshots: list[FrameSnapshot]) -> DirectionEstimate:
+    """Guess where TEAM_A attacks when the user did not say it.
+
+    Each team keeps its shape between the ball and its own goal, so on average the team that
+    defends the left goal stands further left than its rival. Every frame where both teams are
+    visible and their mean x positions are clearly apart votes for one side; the direction is
+    accepted only with enough votes and a clear majority, otherwise it stays unknown. O(frames * players).
+    """
+    votes: list[bool] = []
+    for snapshot in snapshots:
+        team_a, team_b = snapshot.team_players(TEAM_A), snapshot.team_players(TEAM_B)
+        if len(team_a) < MIN_PLAYERS_PER_TEAM or len(team_b) < MIN_PLAYERS_PER_TEAM:
+            continue
+        gap = float(np.mean([p.x for p in team_b]) - np.mean([p.x for p in team_a]))
+        if abs(gap) >= MIN_CENTROID_GAP:
+            votes.append(gap > 0)  # True: TEAM_A is on the left, so it defends the left goal
+    if len(votes) < MIN_DIRECTION_FRAMES:
+        return DirectionEstimate(ATTACK_UNKNOWN, 0.0, len(votes))
+    left_share = sum(votes) / len(votes)
+    if left_share >= MIN_DIRECTION_AGREEMENT:
+        return DirectionEstimate(ATTACK_LEFT_TO_RIGHT, round(left_share, 4), len(votes))
+    if 1 - left_share >= MIN_DIRECTION_AGREEMENT:
+        return DirectionEstimate(ATTACK_RIGHT_TO_LEFT, round(1 - left_share, 4), len(votes))
+    return DirectionEstimate(ATTACK_UNKNOWN, round(max(left_share, 1 - left_share), 4), len(votes))
+
+
+DIRECTION_TEXT = {ATTACK_LEFT_TO_RIGHT: "de izquierda a derecha", ATTACK_RIGHT_TO_LEFT: "de derecha a izquierda"}
+
+
+def resolve_attack_direction(requested: str, snapshots: list[FrameSnapshot]) -> tuple[str, str, float, str | None]:
+    """Direction to use: the user's, or a detected one. Returns (direction, source, agreement, warning).
+
+    source is "user", "detected" or "unknown"; the warning (in Spanish, shown to the user) explains
+    a detected or missing direction."""
+    if requested != ATTACK_UNKNOWN:
+        return requested, "user", 1.0, None
+    estimate = detect_attack_direction(snapshots)
+    if estimate.direction != ATTACK_UNKNOWN:
+        percent = f"{estimate.agreement * 100:.0f}"
+        return estimate.direction, "detected", estimate.agreement, (
+            f"No se indicó la dirección de ataque: se detectó automáticamente que el Equipo A ataca "
+            f"{DIRECTION_TEXT[estimate.direction]} (lo indica el {percent} % de {estimate.frames} cuadros). "
+            "Si no es así, indícala al analizar para corregir los indicadores de línea defensiva."
+        )
+    return ATTACK_UNKNOWN, "unknown", estimate.agreement, (
+        "No se indicó la dirección de ataque y no se pudo detectar con seguridad: los indicadores de "
+        "línea defensiva se reemplazaron por el mayor espacio entre líneas."
+    )
+
+
 def default_strategies() -> list[IndicatorStrategy]:
+    """The indicator families computed by default, one Strategy each."""
     return [TeamShapeStrategy(), CompactnessStrategy(), LinesStrategy(), ZoneOccupationStrategy(), BallStrategy(),
-            ProximityNetworkStrategy()]
+            ProximityNetworkStrategy(), PossessionPhaseStrategy()]
 
 class TacticalAnalyzer:
     """Runs a configurable list of indicator strategies."""
@@ -459,6 +606,7 @@ class TacticalAnalyzer:
         self._strategies = strategies if strategies is not None else default_strategies()
 
     def analyze(self, context: AnalysisContext) -> list[IndicatorResult]:
+        """Runs every strategy on the context and joins their indicators."""
         indicators: list[IndicatorResult] = []
         for strategy in self._strategies:
             indicators.extend(strategy.compute(context))

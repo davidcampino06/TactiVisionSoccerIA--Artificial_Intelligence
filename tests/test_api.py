@@ -41,6 +41,17 @@ def test_analyze_rejects_corrupt_video():
         response = client.post(
             "/api/analyze", headers=API_HEADERS, files={"video": ("broken.mp4", b"not a video", "video/mp4")}
         )
+    # Rejected by its first bytes before reaching OpenCV (503 only if the model could not load).
+    assert response.status_code in (400, 503)
+
+
+def test_analyze_rejects_truncated_mp4(tmp_path):
+    """Real MP4 signature but no video inside: passes the type check and fails in the pipeline."""
+    header = b"\x00\x00\x00\x18ftypisom\x00\x00\x02\x00isomiso2" + b"\x00" * 64
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/analyze", headers=API_HEADERS, files={"video": ("cut.mp4", header, "video/mp4")}
+        )
     assert response.status_code in (422, 503)
 
 
