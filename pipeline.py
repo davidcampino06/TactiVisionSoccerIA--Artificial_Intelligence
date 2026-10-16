@@ -30,6 +30,7 @@ from tactical_analysis import (
     PlayerPosition,
     TacticalAnalyzer,
     network_snapshot,
+    resolve_attack_direction,
 )
 from tactical_insights import TacticalInsightGenerator
 from team_assignment import UNASSIGNED, JerseyColorTeamClassifier
@@ -48,6 +49,7 @@ class VideoProcessingError(ValueError):
 
 @dataclass
 class AnalysisOptions:
+    """Parameters of one analysis request; defaults come from the service settings."""
     confidence_threshold: float = settings.confidence_threshold
     ball_confidence_threshold: float = settings.ball_confidence_threshold
     frame_stride: int = settings.default_frame_stride
@@ -96,6 +98,7 @@ class VideoAnalysisPipeline:
 
     # ------------------------------------------------------------------ public
     def analyze_video(self, video_path: Path, options: AnalysisOptions) -> dict:
+        """Facade of the whole use case: frames, detection, tracking, teams, indicators and insights."""
         started = time.perf_counter()
         capture = cv2.VideoCapture(str(video_path))
         if not capture.isOpened():
@@ -116,16 +119,15 @@ class VideoAnalysisPipeline:
         warnings.extend(team_result.warnings)
 
         snapshots = self._build_snapshots(records, team_result.track_teams, video_info)
+        direction, direction_source, direction_agreement, direction_warning = resolve_attack_direction(
+            options.team_a_attack_direction, snapshots)
+        if direction_warning:
+            warnings.append(direction_warning)
         context = AnalysisContext(
             snapshots=snapshots,
             aspect_ratio=video_info["height"] / video_info["width"],
-            team_a_attack_direction=options.team_a_attack_direction,
+            team_a_attack_direction=direction,
         )
-        if options.team_a_attack_direction == ATTACK_UNKNOWN:
-            warnings.append(
-                "No se indicó la dirección de ataque: los indicadores de línea defensiva se "
-                "reemplazaron por el mayor espacio entre líneas."
-            )
 
         indicators = self._tactical_analyzer.analyze(context)
         possible_issues, recommendations = [], []
@@ -157,7 +159,9 @@ class VideoAnalysisPipeline:
                 "ball_confidence_threshold": options.ball_confidence_threshold,
                 "frame_stride": options.frame_stride,
                 "max_frames": options.max_frames,
-                "team_a_attack_direction": options.team_a_attack_direction,
+                "team_a_attack_direction": direction,
+                "attack_direction_source": direction_source,
+                "attack_direction_agreement": direction_agreement,
                 "pitch_filter": options.pitch_filter,
             },
             "pitch_visible": extraction_stats["pitch_visible"],
@@ -205,7 +209,8 @@ class VideoAnalysisPipeline:
             "duration_seconds": round(frame_count / fps, 2) if frame_count else None,
         }
 
-    def _extract_and_track(self, capture, video_info: dict, options: AnalysisOptions):
+    def _extract_and_track(self, capture: cv2.VideoCapture, video_info: dict, options: AnalysisOptions
+                           ) -> tuple[list[_FrameRecord], dict]:
         stride = max(1, options.frame_stride)
         tracker = TrackerFactory.create(self._tracker_name, frame_rate=video_info["fps"] / stride)
         team_classifier = JerseyColorTeamClassifier()
@@ -273,7 +278,8 @@ class VideoAnalysisPipeline:
         }
 
     @staticmethod
-    def _build_snapshots(records, track_teams: dict[int, str], video_info: dict) -> list[FrameSnapshot]:
+    def _build_snapshots(records: list[_FrameRecord], track_teams: dict[int, str],
+                         video_info: dict) -> list[FrameSnapshot]:
         width, height = video_info["width"], video_info["height"]
         snapshots = []
         for record in records:
@@ -292,11 +298,11 @@ class VideoAnalysisPipeline:
         return snapshots
 
     @staticmethod
-    def _unique_tracks(records) -> int:
+    def _unique_tracks(records: list[_FrameRecord]) -> int:
         return len({tracked.track_id for record in records for tracked in record.tracked_players})
 
     @staticmethod
-    def _stability(records) -> dict:
+    def _stability(records: list[_FrameRecord]) -> dict:
         track_frames: dict[int, int] = defaultdict(int)
         for record in records:
             for tracked in record.tracked_players:
@@ -313,7 +319,7 @@ class VideoAnalysisPipeline:
         }
 
     @staticmethod
-    def _detections_payload(records, track_teams: dict[int, str]) -> list[dict]:
+    def _detections_payload(records: list[_FrameRecord], track_teams: dict[int, str]) -> list[dict]:
         payload = []
         for record in records:
             items = [(tracked.detection, tracked.track_id) for tracked in record.tracked_players]
@@ -335,7 +341,7 @@ class VideoAnalysisPipeline:
         return payload
 
     @staticmethod
-    def _tracking_payload(records, track_teams: dict[int, str], video_info: dict) -> list[dict]:
+    def _tracking_payload(records: list[_FrameRecord], track_teams: dict[int, str], video_info: dict) -> list[dict]:
         width, height = video_info["width"], video_info["height"]
         trajectories: dict[int, list] = defaultdict(list)
         for record in records:
