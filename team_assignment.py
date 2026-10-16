@@ -29,6 +29,7 @@ OUTLIER_DISTANCE_FACTOR = 2.5
 
 @dataclass
 class TeamAssignmentResult:
+    """Team of every track, the two jersey colours and how well they separate."""
     track_teams: dict[int, str]
     team_colors_hex: dict[str, str]
     separation_score: float
@@ -70,6 +71,7 @@ class JerseyColorTeamClassifier:
         self._mean_x: dict[int, list[float]] = defaultdict(list)
 
     def collect(self, frame_bgr: np.ndarray, tracked_players: list[TrackedDetection]) -> None:
+        """Samples the torso colour of every tracked player in this frame."""
         for tracked in tracked_players:
             color = _torso_color_lab(frame_bgr, tracked)
             if color is not None:
@@ -77,6 +79,7 @@ class JerseyColorTeamClassifier:
                 self._mean_x[tracked.track_id].append(tracked.detection.foot_point[0])
 
     def assign(self) -> TeamAssignmentResult:
+        """Clusters the colour samples in two teams (k-means); tracks in neither stay UNASSIGNED."""
         track_ids = [track_id for track_id, samples in self._samples.items() if samples]
         if len(track_ids) < MIN_TRACKS_FOR_CLUSTERING:
             return TeamAssignmentResult(
