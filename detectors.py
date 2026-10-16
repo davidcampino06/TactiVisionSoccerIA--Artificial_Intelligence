@@ -169,6 +169,18 @@ def ensure_model_file(url: str | None, model_dir: Path, auto_download: bool) -> 
         raise ModelLoadError(f"Could not download model from {url}: {error}") from error
     return target_path
 
+def _session_options(ort):  # noqa: ANN001 - onnxruntime is imported lazily
+    """Thread settings for onnxruntime: INFERENCE_THREADS threads and no busy-waiting between runs."""
+    from config import settings
+
+    options = ort.SessionOptions()
+    if settings.inference_threads > 0:
+        options.intra_op_num_threads = settings.inference_threads
+        options.inter_op_num_threads = 1
+        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+    return options
+
+
 def letterbox(frame_bgr: np.ndarray, target_size: int) -> tuple[np.ndarray, float, float, float]:
     """Resize keeping aspect ratio and pad to a square, as YOLO expects."""
     frame_height, frame_width = frame_bgr.shape[:2]
@@ -195,7 +207,8 @@ class OnnxYoloDetector(ObjectDetector):
             raise ModelLoadError("onnxruntime is not installed.") from error
 
         try:
-            self._session = ort.InferenceSession(str(model_path), providers=["CPUExecutionProvider"])
+            self._session = ort.InferenceSession(str(model_path), _session_options(ort),
+                                                 providers=["CPUExecutionProvider"])
         except Exception as error:
             raise ModelLoadError(f"onnxruntime could not load '{model_path}': {error}") from error
 
