@@ -17,7 +17,7 @@ from tactical_analysis import (
     resolve_attack_direction,
 )
 from tactical_insights import TacticalInsightGenerator
-from team_assignment import TEAM_A, TEAM_B
+from team_assignment import TEAM_A, TEAM_B, UNASSIGNED
 
 SQUARE = [(0.1, 0.1), (0.3, 0.1), (0.1, 0.3), (0.3, 0.3)]
 FAR_SQUARE = [(0.7, 0.7), (0.9, 0.7), (0.7, 0.9), (0.9, 0.9)]
@@ -33,7 +33,7 @@ def snapshot(team_a, team_b, ball=(0.5, 0.5), frame=0):
 
 def analyze(snapshots, aspect_ratio=1.0, direction="unknown"):
     context = AnalysisContext(snapshots, aspect_ratio=aspect_ratio, team_a_attack_direction=direction)
-    return {indicator.full_name: indicator for indicator in TacticalAnalyzer().analyze(context)}
+    return {indicator.full_name: indicator for indicator in TacticalAnalyzer(by_phase=False).analyze(context)}
 
 
 # ---------------------------------------------------------------- shape and compactness
@@ -122,6 +122,16 @@ def test_ball_owner_is_the_team_of_the_nearest_player():
     assert PossessionPhaseStrategy.ball_owner(context, snapshot(ATTACKERS, PRESSERS, ball=None)) is None
 
 
+def test_a_referee_next_to_the_ball_does_not_own_it():
+    # Real clips: the player nearest the ball was sometimes a referee (UNASSIGNED) and the
+    # possession indicators failed with KeyError. Only players of a team can have the ball.
+    context = AnalysisContext([], aspect_ratio=1.0)
+    frame = snapshot(ATTACKERS, PRESSERS)
+    frame.players.append(PlayerPosition(900, UNASSIGNED, 0.5, 0.5, 0.9))
+    assert PossessionPhaseStrategy.ball_owner(context, frame) == TEAM_A
+    assert analyze([frame])["team_b.pressure_on_ball"].value == 2.0
+
+
 def test_pressure_on_ball_counts_defenders_near_the_ball():
     indicators = analyze([snapshot(ATTACKERS, PRESSERS)], direction=ATTACK_LEFT_TO_RIGHT)
     assert indicators["team_b.pressure_on_ball"].value == 2.0
@@ -154,7 +164,7 @@ def test_possession_issues_are_raised_with_evidence():
     passive_defense = [(0.90, 0.1), (0.90, 0.9), (0.80, 0.2), (0.85, 0.8)]
     snapshots = [snapshot(narrow_attack, passive_defense, frame=n) for n in range(12)]
     context = AnalysisContext(snapshots, aspect_ratio=1.0, team_a_attack_direction=ATTACK_LEFT_TO_RIGHT)
-    issues, _ = TacticalInsightGenerator().generate(TacticalAnalyzer().analyze(context), team_separation=0.9)
+    issues, _ = TacticalInsightGenerator().generate(TacticalAnalyzer(by_phase=False).analyze(context), team_separation=0.9)
     raised = {(issue["code"], issue["team"]) for issue in issues}
     assert {("LOW_BALL_PRESSURE", TEAM_B), ("NARROW_ATTACK", TEAM_A), ("NO_ATTACKING_DEPTH", TEAM_A)} <= raised
     narrow = next(issue for issue in issues if issue["code"] == "NARROW_ATTACK")
