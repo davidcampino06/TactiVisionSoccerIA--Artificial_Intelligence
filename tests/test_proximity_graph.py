@@ -58,7 +58,7 @@ COMPACT = [(0.60, 0.4), (0.65, 0.5), (0.70, 0.4), (0.70, 0.6), (0.62, 0.6)]
 
 def test_indicators_and_issue_for_a_split_team():
     context = AnalysisContext([_frame(SPLIT, COMPACT, frame) for frame in range(10)], aspect_ratio=1.0)
-    indicators = {indicator.full_name: indicator for indicator in TacticalAnalyzer().analyze(context)}
+    indicators = {indicator.full_name: indicator for indicator in TacticalAnalyzer(by_phase=False).analyze(context)}
     assert indicators["team_a.network_components"].value == 3
     assert indicators["team_a.isolated_players"].value == 1
     assert indicators["team_b.network_components"].value == 1
