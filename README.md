@@ -94,6 +94,9 @@ las distancias BFS entre cada par de jugadores conectados.
 
 ## Ejecutar localmente
 
+Versión de Python: **3.13**, fijada en `.python-version`. Render la usa al desplegar (si el servicio no
+tiene la variable `PYTHON_VERSION`, que tendría prioridad) y es la misma de GitHub Actions.
+
 ```bash
 cd TactivisionSoccerIA-ai
 python -m venv .venv
@@ -134,7 +137,8 @@ contra la ejecución `.pt` en PyTorch (ver `MODEL_EVALUATION.md`). Para RT-DETR 
 - Si el video no muestra césped en la mayoría de frames, **no se generan problemas tácticos**.
 - Los umbrales en `DEFAULT_THRESHOLDS` son heurísticos: deben calibrarse con videos reales.
 
-## Render (más adelante)
+## Render
 
 Web Service · Build: `pip install -r requirements.txt` ·
 Start: `uvicorn main:app --host 0.0.0.0 --port $PORT` · Variables: las de `.env.example`.
+Python: `.python-version` (3.13); la variable `PYTHON_VERSION` del servicio, si existe, tiene prioridad.
