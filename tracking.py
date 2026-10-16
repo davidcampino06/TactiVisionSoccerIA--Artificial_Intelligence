@@ -11,8 +11,13 @@ temporary number inside one video; it never identifies a real person.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 import numpy as np
 from detectors import Detection
+
+if TYPE_CHECKING:
+    import supervision as sv
+
 
 @dataclass(frozen=True)
 class TrackedDetection:
@@ -37,7 +42,7 @@ class ByteTrackTracker(ObjectTracker):
     """ByteTrack implementation provided by the ``supervision`` package (NumPy only)."""
 
     name = "ByteTrack"
-    def __init__(self, frame_rate: float, lost_track_buffer: int = 30, activation_threshold: float = 0.25):
+    def __init__(self, frame_rate: float, lost_track_buffer: int = 30, activation_threshold: float = 0.25) -> None:
         import supervision as sv  # imported lazily to keep module import cheap
 
         self._sv = sv
@@ -46,7 +51,7 @@ class ByteTrackTracker(ObjectTracker):
         self._activation_threshold = activation_threshold
         self._tracker = self._build()
 
-    def _build(self):
+    def _build(self) -> "sv.ByteTrack":
         return self._sv.ByteTrack(
             track_activation_threshold=self._activation_threshold,
             lost_track_buffer=self._lost_track_buffer,
@@ -72,6 +77,10 @@ class ByteTrackTracker(ObjectTracker):
             data={"source_index": np.arange(len(player_detections))},
         )
         tracked = self._tracker.update_with_detections(detections)
+        # A frame where no detection is confirmed yet comes back as sv.Detections.empty(), which has
+        # no "source_index" column at all: nothing is tracked in that frame.
+        if len(tracked) == 0 or "source_index" not in tracked.data or tracked.tracker_id is None:
+            return []
 
         results: list[TrackedDetection] = []
         for source_index, tracker_id in zip(tracked.data["source_index"], tracked.tracker_id):
@@ -85,6 +94,7 @@ class TrackerFactory:
 
     @staticmethod
     def create(tracker_name: str, frame_rate: float) -> ObjectTracker:
+        """Factory Method: the tracker named in the settings (only ByteTrack for now)."""
         if tracker_name.lower() == "bytetrack":
             return ByteTrackTracker(frame_rate=frame_rate)
         raise ValueError(f"Unsupported tracker '{tracker_name}'. Available: ByteTrack")
