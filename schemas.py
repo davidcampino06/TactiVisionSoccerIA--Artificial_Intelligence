@@ -36,6 +36,7 @@ class TacticalIndicatorOut(BaseModel):
     std: float
     samples: int
     description: str
+    phase: str | None = None  # "defending" / "not_defending": measured only in that phase of play
 
 class PossibleIssueOut(BaseModel):
     """A possible tactical issue with its evidence and the breakdown of its confidence."""

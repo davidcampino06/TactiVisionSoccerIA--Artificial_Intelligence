@@ -30,6 +30,12 @@ from tactical_analysis import IndicatorResult
 MIN_PERSISTENCE = 0.5
 MIN_SAMPLES = 8
 
+# Added to the evidence so the coach knows which moments were judged (see INDICATOR_PHASE).
+PHASE_NOTE = {
+    "defending": " Medido solo en los cuadros en que el rival tenía el balón (el equipo defendía).",
+    "not_defending": " Medido solo en los cuadros en que el equipo no estaba defendiendo.",
+}
+
 @dataclass(frozen=True)
 class IssueRule:
     """Turns one indicator crossing its threshold into a possible issue and a recommendation."""
@@ -106,7 +112,8 @@ ISSUE_RULES: list[IssueRule] = [
         code="HIGH_ZONE_CONCENTRATION",
         issue="Posible problema táctico: alta concentración de jugadores en una zona",
         indicator="max_zone_concentration",
-        reliability=0.85,
+        # 0.85 before calibration; with real clips it had the most false alarms (2 of 7): lowered.
+        reliability=0.6,
         evidence_template="La zona más ocupada de la cuadrícula 3x3 reunió el {value_percent} % de los jugadores visibles "
                             "(umbral {threshold_percent} %) en el {persistence} % de {samples} cuadros.",
         recommendation="Revisar la ocupación de la cancha; demasiados jugadores en una zona pueden dejar "
@@ -116,7 +123,8 @@ ISSUE_RULES: list[IssueRule] = [
         code="INSUFFICIENT_WIDTH",
         issue="Posible problema táctico: amplitud insuficiente",
         indicator="team_width",
-        reliability=0.75,
+        # 0.75 before calibration; 1 false alarm of 3 with real clips: lowered.
+        reliability=0.65,
         evidence_template="El ancho del equipo promedió {value} de la altura de la imagen (umbral "
                             "{threshold}) en el {persistence} % de {samples} cuadros.",
         recommendation="Revisar la amplitud con balón; considerar extremos pegados a la "
@@ -256,7 +264,7 @@ class TacticalInsightGenerator:
                     threshold_percent=format_number((indicator.threshold or 0) * 100, 1),
                     persistence=format_number(indicator.exceed_ratio * 100, 1),
                     samples=format_number(indicator.samples, 0),
-                )
+                ) + PHASE_NOTE.get(indicator.phase or "", "")
                 issue_id = f"{rule.code}:{indicator.team}:{indicator.name}"
                 severity = _severity(indicator)
                 possible_issues.append({
