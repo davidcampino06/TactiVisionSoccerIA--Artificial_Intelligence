@@ -12,6 +12,8 @@ import secrets
 import shutil
 import threading
 import uuid
+
+import cv2
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -28,6 +30,8 @@ from simulation import run_simulation
 from tactical_analysis import ATTACK_LEFT_TO_RIGHT, ATTACK_RIGHT_TO_LEFT, ATTACK_UNKNOWN
 
 configure_logging()
+if settings.inference_threads > 0:
+    cv2.setNumThreads(settings.inference_threads)
 logger = logging.getLogger("tactivision.ai")
 
 ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv", ".webm"}
