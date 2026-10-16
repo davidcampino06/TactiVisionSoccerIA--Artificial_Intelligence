@@ -23,3 +23,22 @@ def test_letterbox_keeps_aspect_ratio():
     assert padded.shape == (640, 640, 3)
     assert scale == pytest.approx(1.0)
     assert pad_x == 0 and pad_y == 140
+
+
+def test_onnx_session_uses_the_configured_threads_without_spinning(monkeypatch):
+    """Render Free gives a fraction of a CPU: one thread that does not busy-wait is the fastest."""
+    import dataclasses
+
+    import onnxruntime as ort
+
+    import config
+    from detectors import _session_options
+
+    monkeypatch.setattr(config, "settings", dataclasses.replace(config.settings, inference_threads=1))
+    options = _session_options(ort)
+    assert options.intra_op_num_threads == 1
+    assert options.inter_op_num_threads == 1
+    assert options.get_session_config_entry("session.intra_op.allow_spinning") == "0"
+
+    monkeypatch.setattr(config, "settings", dataclasses.replace(config.settings, inference_threads=0))  # automatic
+    assert _session_options(ort).intra_op_num_threads == 0
