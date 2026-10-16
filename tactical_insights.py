@@ -32,6 +32,7 @@ MIN_SAMPLES = 8
 
 @dataclass(frozen=True)
 class IssueRule:
+    """Turns one indicator crossing its threshold into a possible issue and a recommendation."""
     code: str
     issue: str
     indicator: str
@@ -152,6 +153,36 @@ ISSUE_RULES: list[IssueRule] = [
         recommendation="Revisar la posición de los jugadores aislados; un apoyo cercano les da una opción "
                         "de pase y una cobertura si pierden el balón.",
     ),
+    IssueRule(
+        code="LOW_BALL_PRESSURE",
+        issue="Posible problema táctico: poca presión sobre el balón",
+        indicator="pressure_on_ball",
+        reliability=0.6,
+        evidence_template="Sin el balón, el equipo tuvo en promedio {value} jugadores cerca del balón "
+                            "(umbral {threshold}) y nadie lo presionó en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar la presión tras pérdida y el primer defensor; acercar al jugador más próximo "
+                        "al balón para reducir el tiempo del rival.",
+    ),
+    IssueRule(
+        code="NARROW_ATTACK",
+        issue="Posible problema táctico: ataque demasiado estrecho",
+        indicator="attacking_width",
+        reliability=0.65,
+        evidence_template="Con el balón, el equipo ocupó en promedio {value_percent} % del ancho visible "
+                            "(umbral {threshold_percent} %) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar la amplitud en ataque; abrir a los extremos o laterales para estirar la "
+                        "defensa rival y crear espacios por dentro.",
+    ),
+    IssueRule(
+        code="NO_ATTACKING_DEPTH",
+        issue="Posible problema táctico: falta de profundidad en ataque",
+        indicator="players_ahead_of_ball",
+        reliability=0.6,
+        evidence_template="Con el balón, el equipo tuvo en promedio {value} jugadores por delante del balón "
+                            "(umbral {threshold}) en el {persistence} % de {samples} cuadros.",
+        recommendation="Revisar los desmarques de ruptura; al menos un jugador por delante del balón da una "
+                        "opción de pase hacia adelante y fija a la defensa rival.",
+    ),
 ]
 
 def _severity(indicator: IndicatorResult) -> str:
@@ -206,6 +237,7 @@ class TacticalInsightGenerator:
         self._rules = rules if rules is not None else ISSUE_RULES
 
     def generate(self, indicators: list[IndicatorResult], team_separation: float) -> tuple[list[dict], list[dict]]:
+        """Applies every rule; returns (possible issues, recommendations), most confident first."""
         possible_issues: list[dict] = []
         recommendations: list[dict] = []
 
