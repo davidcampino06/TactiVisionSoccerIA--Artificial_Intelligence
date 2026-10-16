@@ -1,0 +1,142 @@
+{
+ "c1_francia_marruecos": {
+  "TEAM_A": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": false,
+   "narrow_attack": true,
+   "crowded_zone": true
+  },
+  "TEAM_B": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": true,
+   "narrow_attack": false,
+   "crowded_zone": false
+  }
+ },
+ "c2_ataque": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": true,
+   "narrow_attack": true,
+   "crowded_zone": true
+  },
+  "TEAM_B": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": false,
+   "narrow_attack": true,
+   "crowded_zone": true
+  }
+ },
+ "c3_contraataque_banda": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false
+  },
+  "TEAM_B": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": true,
+   "narrow_attack": true,
+   "crowded_zone": true
+  }
+ },
+ "c4_contraataque_mala_defensa": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false
+  },
+  "TEAM_B": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": true,
+   "narrow_attack": true,
+   "crowded_zone": true
+  }
+ },
+ "c6_pase_filtrado": {
+  "TEAM_A": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": true,
+   "narrow_attack": false,
+   "crowded_zone": false
+  },
+  "TEAM_B": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": true,
+   "crowded_zone": true
+  }
+ },
+ "c7_presion": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false
+  },
+  "TEAM_B": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": true,
+   "narrow_attack": false,
+   "crowded_zone": false
+  }
+ },
+ "c8_tiro_esquina": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": null,
+   "crowded_zone": true
+  },
+  "TEAM_B": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": null,
+   "crowded_zone": true
+  }
+ }
+}
