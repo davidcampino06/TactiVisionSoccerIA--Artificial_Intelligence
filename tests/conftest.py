@@ -10,6 +10,8 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 os.environ.setdefault("AI_SERVICE_API_KEY", "test-key")
 os.environ.setdefault("MODEL_DIR", str(SERVICE_DIR / "models"))
+# The rate limit has its own tests (test_security.py); the rest of the suite must not hit it.
+os.environ.setdefault("RATE_LIMIT_PER_MINUTE", "1000")
 
 
 @pytest.fixture(scope="session")
