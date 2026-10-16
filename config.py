@@ -31,6 +31,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 @dataclass(frozen=True)
 class Settings:
+    """Service configuration read once from environment variables (see .env.example)."""
     model_name: str = field(default_factory=lambda: os.getenv("MODEL_NAME", "YOLO26n"))
     # "onnx" -> onnxruntime (light, no PyTorch). "ultralytics" -> .pt weights with PyTorch.
     model_runtime: str = field(default_factory=lambda: os.getenv("MODEL_RUNTIME", "onnx").lower())
@@ -47,5 +48,8 @@ class Settings:
     api_key: str = field(default_factory=lambda: os.getenv("AI_SERVICE_API_KEY", ""))
     temp_dir: Path = field(default_factory=lambda: Path(os.getenv("TEMP_DIR", "tmp")))
     load_model_on_startup: bool = field(default_factory=lambda: _env_bool("LOAD_MODEL_ON_STARTUP", True))
+    # Analysis requests allowed per client and minute (request_guard.py). The Backend sends one video
+    # at a time, so the default leaves plenty of room and still stops floods and API key guessing.
+    rate_limit_per_minute: int = field(default_factory=lambda: _env_int("RATE_LIMIT_PER_MINUTE", 10))
 
 settings = Settings()

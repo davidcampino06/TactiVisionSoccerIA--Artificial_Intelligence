@@ -25,10 +25,11 @@ from pathlib import Path
 import numpy as np
 
 from config import settings
-from detectors import OBJECT_TYPE_BALL, OBJECT_TYPE_PLAYER, DetectorFactory, ModelLoadError
+from detectors import OBJECT_TYPE_BALL, OBJECT_TYPE_PLAYER, DetectorFactory, ModelLoadError, ObjectDetector
 from pipeline import AnalysisOptions, VideoAnalysisPipeline
 
-def evaluate_on_video(detector, video_path: Path, frame_stride: int, max_frames: int) -> dict:
+def evaluate_on_video(detector: ObjectDetector, video_path: Path, frame_stride: int, max_frames: int) -> dict:
+    """Runs the full pipeline with one detector on one video and returns its measured metrics."""
     result = VideoAnalysisPipeline(detector).analyze_video(
         video_path,
         AnalysisOptions(frame_stride=frame_stride, max_frames=max_frames, include_detections=True),
@@ -66,6 +67,7 @@ def evaluate_with_dataset(model_name: str, dataset_yaml: Path) -> dict:
     }
 
 def to_markdown(rows: list[dict]) -> str:
+    """Formats the evaluation rows as a Markdown table (missing values as n/a)."""
     columns = [
         "model", "runtime", "video", "frames", "mean_inference_ms", "processed_fps", "avg_players_per_frame",
         "mean_player_confidence", "ball_detection_rate", "unique_tracks",
@@ -78,6 +80,7 @@ def to_markdown(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 def main() -> None:
+    """Command line entry point: compares the given models on the given videos."""
     parser = argparse.ArgumentParser(description="Compare TactiVision detection models.")
     parser.add_argument("--videos", nargs="+", type=Path, required=True)
     parser.add_argument("--models", nargs="+", default=["YOLO26n", "YOLO11n"])
