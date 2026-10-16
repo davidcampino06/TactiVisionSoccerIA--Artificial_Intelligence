@@ -103,6 +103,14 @@ no cuenta. Con eso se miden tres indicadores nuevos:
 Cada indicador tiene su prueba con posiciones hechas a mano en `tests/test_indicators.py`, igual que
 los anteriores (forma, compactación, líneas, zonas, balón y red de cercanía).
 
+**La forma se juzga en su fase.** Como el balón no se ve en todos los cuadros, la posesión se
+recuerda `POSSESSION_MEMORY_SECONDS` (2 s) después de verlo. Los indicadores de forma defensiva
+(líneas, compactación, distancia al compañero, aislados, grupos, zona más ocupada) se miden solo
+mientras el rival tiene el balón, y el ancho del equipo solo mientras no defiende
+(`INDICATOR_PHASE`). Un equipo que casi no defendió no se evalúa, y el análisis lo avisa. Con los
+clips reales esto bajó las falsas alarmas de 13 a 3 ([CALIBRATION.md](CALIBRATION.md)); las pruebas
+están en `tests/test_phases.py`.
+
 ## Dirección de ataque automática
 
 Si el usuario no indica hacia dónde ataca el Equipo A, `detect_attack_direction` la estima: cada
@@ -177,7 +185,8 @@ contra la ejecución `.pt` en PyTorch (ver `MODEL_EVALUATION.md`). Para RT-DETR 
 - `defensive_line_position` depende del encuadre: con cámara que se mueve es solo orientativo
   (por eso su regla tiene `reliability=0.6`).
 - Si el video no muestra césped en la mayoría de frames, **no se generan problemas tácticos**.
-- Los umbrales en `DEFAULT_THRESHOLDS` son heurísticos: deben calibrarse con videos reales.
+- Los umbrales en `DEFAULT_THRESHOLDS` se calibraron con 7 clips reales de TV (ver
+  [CALIBRATION.md](CALIBRATION.md)); es una calibración orientativa, no una precisión garantizada.
 
 ## Render
 
