@@ -111,6 +111,24 @@ mientras el rival tiene el balón, y el ancho del equipo solo mientras no defien
 clips reales esto bajó las falsas alarmas de 13 a 3 ([CALIBRATION.md](CALIBRATION.md)); las pruebas
 están en `tests/test_phases.py`.
 
+## Cada alerta explicada y mostrada en la cancha
+
+Cada recomendación trae `explanation` con tres textos en lenguaje de fútbol y una jugada real:
+
+| Campo | Qué es |
+|---|---|
+| `seen` | Qué vio la IA, con los números traducidos: "Mientras el rival tenía el balón (unos 2 segundos de juego), en el Equipo A la distancia de cada jugador a su compañero más cercano fue en promedio el 17,7 % del ancho de la imagen…" |
+| `meaning` | Qué significa en la cancha |
+| `coach` | Qué podría trabajar el cuerpo técnico |
+| `example` | Un cuadro real donde pasó: jugadores, equipos, balón, quién tenía el balón y un dibujo de la regla (`overlay`) |
+
+El cuadro de ejemplo (`issue_examples.py`) se elige entre los cuadros de la fase correcta donde el
+umbral se cruzó de verdad, con casi todo el equipo visible, y es el de valor **más cercano al
+promedio** reportado (representativo, no el más exagerado). El dibujo depende de la regla: compañero
+más cercano, área del bloque, grupos de la red, hueco entre líneas, zona más ocupada, ancho de banda
+a banda, radio de presión alrededor del balón o jugadores por delante del balón. Las posiciones son
+las de la imagen (no hay calibración de cancha): la app lo dice al mostrarla.
+
 ## Dirección de ataque automática
 
 Si el usuario no indica hacia dónde ataca el Equipo A, `detect_attack_direction` la estima: cada
