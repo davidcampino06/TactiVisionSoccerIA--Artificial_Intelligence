@@ -35,6 +35,7 @@ from tactical_analysis import (
     possession_by_frame,
     resolve_attack_direction,
 )
+from issue_examples import attach_examples
 from tactical_insights import MIN_SAMPLES, TacticalInsightGenerator
 from team_assignment import TEAM_A, TEAM_B, UNASSIGNED, JerseyColorTeamClassifier, TeamAssignmentResult
 from tracking import TrackedDetection, TrackerFactory
@@ -200,8 +201,9 @@ class VideoAnalysisPipeline:
         possible_issues, recommendations = [], []
         if extraction_stats["pitch_visible"] or not options.require_pitch_for_insights:
             possible_issues, recommendations = self._insight_generator.generate(
-                indicators, team_result.separation_score
+                indicators, team_result.separation_score, seconds_per_frame=options.frame_stride / video_info["fps"]
             )
+            attach_examples(context, indicators, recommendations)
         else:
             warnings.append(
                 "NO se generaron posibles problemas tácticos ni recomendaciones porque el video "
