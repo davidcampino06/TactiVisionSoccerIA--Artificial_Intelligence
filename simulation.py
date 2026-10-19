@@ -17,6 +17,7 @@ from tactical_analysis import (
 )
 from tactical_insights import TacticalInsightGenerator
 from team_assignment import TEAM_A, TEAM_B
+from issue_examples import attach_examples
 
 # Outfield shapes in image coordinates (x along pitch length, y along pitch width).
 TEAM_A_SHAPE = [  # 4-4-2 attacking left -> right, deliberately stretched between lines
@@ -51,7 +52,9 @@ def run_simulation(frames: int = 120, seed: int = 7) -> dict:
 
     context = AnalysisContext(snapshots=snapshots, aspect_ratio=9 / 16, team_a_attack_direction=ATTACK_LEFT_TO_RIGHT)
     indicators = TacticalAnalyzer().analyze(context)
-    possible_issues, recommendations = TacticalInsightGenerator().generate(indicators, team_separation=1.0)
+    possible_issues, recommendations = TacticalInsightGenerator().generate(indicators, team_separation=1.0,
+                                                                           seconds_per_frame=1 / 25.0)
+    attach_examples(context, indicators, recommendations)
 
     return {
         "status": "COMPLETED",
