@@ -102,3 +102,14 @@ def test_simulation_is_clearly_labelled():
     assert body["model"] == "SIMULATION"
     assert any("MODO SIMULACIÓN" in warning for warning in body["warnings"])
     assert body["tactical_indicators"]
+
+
+def test_simulation_recommendations_carry_their_explanation():
+    """The API keeps the plain explanation and the example frame of every recommendation."""
+    with TestClient(app) as client:
+        body = client.post("/api/analyze/simulation", data={"frames": "60"}, headers=API_HEADERS).json()
+    assert body["recommendations"], "the synthetic match always has at least one possible issue"
+    for recommendation in body["recommendations"]:
+        explanation = recommendation["explanation"]
+        assert explanation["seen"] and explanation["meaning"] and explanation["coach"]
+        assert explanation["example"]["players"], recommendation["issue_id"]
