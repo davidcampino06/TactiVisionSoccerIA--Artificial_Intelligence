@@ -60,6 +60,9 @@ class RecommendationOut(BaseModel):
     confidence: float = Field(ge=0, le=1)
     severity: Literal["LOW", "MEDIUM", "HIGH"]
     related_indicators: list[str]
+    # Plain-language explanation (seen / meaning / coach) and one real frame that shows the issue
+    # (issue_examples.py): players, ball and an overlay to draw on the pitch.
+    explanation: dict[str, Any] | None = None
 
 class AnalysisResponse(BaseModel):
     """Body of POST /api/analyze and /api/analyze/simulation."""
