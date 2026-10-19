@@ -238,14 +238,155 @@ def format_number(value: float, decimals: int) -> str:
     return text.replace(",", "\u0000").replace(".", ",").replace("\u0000", ".")
 
 
+@dataclass(frozen=True)
+class PlainExplanation:
+    """The same issue told like a coach would: what the AI saw, what it means, what to do."""
+    measure: str   # what was measured, e.g. "la distancia de cada jugador a su compañero más cercano"
+    moment: str    # when it is measured, e.g. "Mientras el rival tenía el balón"
+    meaning: str   # what it means on the pitch
+    coach: str     # what a coaching staff could work on
+
+
+DEFENDING_MOMENT = "Mientras el rival tenía el balón"
+PLAIN: dict[str, PlainExplanation] = {
+    "defensive_midfield_distance": PlainExplanation(
+        "el espacio entre la línea de defensas y la de mediocampistas", DEFENDING_MOMENT,
+        "Quedó un hueco grande entre la defensa y el mediocampo. Un rival que reciba ahí puede girarse "
+        "de frente al arco sin que nadie lo presione.",
+        "Adelantar la línea defensiva o retrasar a un mediocampista para cerrar ese espacio entre líneas."),
+    "largest_line_gap": PlainExplanation(
+        "el mayor espacio entre dos líneas del equipo", DEFENDING_MOMENT,
+        "El equipo quedó estirado: entre dos de sus líneas hubo un hueco grande donde el rival puede recibir solo.",
+        "Acercar las líneas entre sí al defender; que la línea más cercana al hueco dé un paso para cerrarlo."),
+    "team_compactness_area": PlainExplanation(
+        "el área que ocupaban sus jugadores visibles", DEFENDING_MOMENT,
+        "El bloque defensivo estaba abierto: los jugadores ocupaban mucho espacio y entre ellos quedaban pasillos "
+        "para que el rival pase el balón.",
+        "Defender más juntos: reducir distancias entre jugadores y entre líneas para cerrar los pasillos."),
+    "average_player_distance": PlainExplanation(
+        "la distancia media entre compañeros", DEFENDING_MOMENT,
+        "Los jugadores estaban lejos unos de otros: si el rival supera a uno, el compañero está demasiado lejos para "
+        "ayudar.",
+        "Trabajar el bloque compacto: moverse juntos hacia el lado del balón y acortar distancias."),
+    "nearest_teammate_distance": PlainExplanation(
+        "la distancia de cada jugador a su compañero más cercano", DEFENDING_MOMENT,
+        "Defendían con los jugadores muy separados entre sí. Si un rival supera a uno, no hay un compañero cerca para "
+        "hacer la cobertura y quedan espacios para pasar entre ellos.",
+        "Juntar más las líneas al defender, para que ningún jugador quede solo y siempre haya una cobertura cerca."),
+    "defensive_line_position": PlainExplanation(
+        "la distancia de la línea defensiva a su propio arco", "Durante el video",
+        "La defensa estaba muy cerca de su arco: el equipo se hunde y deja mucho espacio delante para que el rival "
+        "llegue y remate.",
+        "Subir la línea defensiva unos metros, coordinada con el mediocampo, para alejar al rival del arco."),
+    "max_zone_concentration": PlainExplanation(
+        "la parte de sus jugadores visibles en la zona más ocupada", DEFENDING_MOMENT,
+        "Muchos jugadores estaban en la misma zona. Eso deja otras zonas sin nadie y un cambio de orientación del "
+        "rival las encuentra vacías.",
+        "Repartir mejor la ocupación: que no vayan todos al balón y alguien vigile el lado contrario."),
+    "team_width": PlainExplanation(
+        "el ancho que ocupaba el equipo de banda a banda", "Mientras no estaba defendiendo",
+        "El equipo jugaba por el centro sin abrir la cancha. Así el rival defiende cómodo, todo junto, porque no hay "
+        "que cubrir las bandas.",
+        "Abrir a los extremos o laterales pegados a la banda para estirar la defensa rival."),
+    "max_zone_numerical_difference": PlainExplanation(
+        "la diferencia de jugadores entre los dos equipos en un mismo tercio de la imagen", "En el partido",
+        "En una zona un equipo tuvo varios jugadores más que el otro: quien está en inferioridad ahí pierde los duelos "
+        "y las coberturas.",
+        "Revisar en el video esa zona: equilibrar jugadores donde el rival se carga o aprovechar la superioridad."),
+    "network_components": PlainExplanation(
+        "el número de grupos de jugadores sin un pase corto entre ellos", DEFENDING_MOMENT,
+        "El equipo estaba partido, por ejemplo la defensa por un lado y los delanteros por otro, sin nadie en medio. "
+        "Al recuperar el balón no hay a quién dárselo cerca y al defender queda un hueco entre los grupos.",
+        "Poner un jugador de enlace, normalmente un mediocampista, que una los grupos."),
+    "isolated_players": PlainExplanation(
+        "el número de jugadores sin ningún compañero cerca", DEFENDING_MOMENT,
+        "Hubo jugadores solos, sin un compañero a distancia de ayuda. Un rival los puede encarar en uno contra uno sin "
+        "que nadie haga la cobertura.",
+        "Acercar un apoyo a esos jugadores o recolocarlos más cerca del bloque."),
+    "pressure_on_ball": PlainExplanation(
+        "el número de defensores cerca del jugador que llevaba el balón", "Cuando el rival tenía el balón",
+        "Dejaron jugar al rival con tranquilidad: el que tenía el balón podía levantar la cabeza y elegir el pase sin "
+        "que nadie lo apurara.",
+        "Que el jugador más cercano salga a presionar apenas el rival recibe, sobre todo justo después de perder el "
+        "balón."),
+    "attacking_width": PlainExplanation(
+        "el ancho del equipo mientras tenía el balón", "Cuando tenía el balón",
+        "Atacaban amontonados por el centro, sin jugadores abiertos: el rival cierra el medio y el ataque se atasca.",
+        "Abrir a los extremos o laterales en ataque para estirar la defensa rival y abrir espacios por dentro."),
+    "players_ahead_of_ball": PlainExplanation(
+        "el número de compañeros por delante del balón, hacia el arco rival", "Cuando tenía el balón",
+        "Nadie estaba por delante del balón: el que lo llevaba no tenía un pase hacia adelante y el ataque solo podía "
+        "ir para atrás o para los lados.",
+        "Trabajar desmarques de ruptura: que al menos un jugador ataque el espacio a la espalda de la defensa."),
+}
+
+TEAM_NAMES = {"TEAM_A": "el Equipo A", "TEAM_B": "el Equipo B", "MATCH": "el partido"}
+COUNT_UNITS = {"players": ("jugador", "jugadores"), "groups": ("grupo", "grupos")}
+
+
+def _plain_amount(value: float, unit: str, with_reference: bool = True) -> str:
+    """0.177 frame_width_ratio -> "el 17,7 % del ancho de la imagen"; 2.5 groups -> "2,5 grupos"."""
+    percent = f"el {format_number(value * 100, 1)} %"
+    reference = {"frame_width_ratio": " del ancho de la imagen", "frame_height_ratio": " del alto de la imagen",
+                 "frame_area_ratio": " de la imagen", "player_ratio": ""}
+    if unit in reference:
+        return percent + (reference[unit] if with_reference else "")
+    singular, plural = COUNT_UNITS.get(unit, ("", ""))
+    number = format_number(value, 1)
+    return f"{number} {singular if number == '1' else plural}".strip()
+
+
+def _plain_limit(threshold: float, direction: str | None, unit: str, persistence: str) -> str:
+    """Where the limit is and how often it was crossed, said the way a coach would say it."""
+    if unit in COUNT_UNITS and direction == "below":
+        least = int(threshold) + 1                      # problem at/below 0.5 -> normal: at least 1
+        return f"lo normal es al menos {_plain_amount(least, unit)}, y hubo menos en el {persistence} % de esos momentos."
+    amount = _plain_amount(threshold, unit, with_reference=False)
+    if direction == "above":
+        return f"se considera un problema desde {amount}, y lo alcanzó en el {persistence} % de esos momentos."
+    below = f"del {amount.removeprefix('el ')}" if amount.startswith("el ") else f"de {amount}"
+    return f"se considera un problema por debajo {below}, y estuvo así en el {persistence} % de esos momentos."
+
+
+def _plain_duration(samples: int, seconds_per_frame: float | None) -> str:
+    if not seconds_per_frame:
+        return f"{samples} cuadros analizados"
+    seconds = samples * seconds_per_frame
+    if seconds < 1:
+        return "menos de 1 segundo de juego"
+    rounded = round(seconds)
+    return f"unos {rounded} segundo{'s' if rounded != 1 else ''} de juego"
+
+
+def plain_explanation(indicator: IndicatorResult, seconds_per_frame: float | None = None) -> dict | None:
+    """What the AI saw (with the real numbers), what it means and what to work on, in plain Spanish."""
+    plain = PLAIN.get(indicator.name)
+    if plain is None or indicator.threshold is None:
+        return None
+    team = TEAM_NAMES.get(indicator.team, indicator.team)
+    seen = (
+        f"{plain.moment} ({_plain_duration(indicator.samples, seconds_per_frame)}), en {team} "
+        f"{plain.measure} fue en promedio {_plain_amount(indicator.value, indicator.unit)}; "
+        + _plain_limit(indicator.threshold, indicator.threshold_direction, indicator.unit,
+                       format_number(indicator.exceed_ratio * 100, 0))
+    )
+    if indicator.team == "MATCH":
+        seen = seen.replace(f"en {team} ", "")
+    return {"seen": seen[0].upper() + seen[1:], "meaning": plain.meaning, "coach": plain.coach}
+
+
 class TacticalInsightGenerator:
     """Applies the issue rules and builds explainable recommendations."""
 
     def __init__(self, rules: list[IssueRule] | None = None) -> None:
         self._rules = rules if rules is not None else ISSUE_RULES
 
-    def generate(self, indicators: list[IndicatorResult], team_separation: float) -> tuple[list[dict], list[dict]]:
-        """Applies every rule; returns (possible issues, recommendations), most confident first."""
+    def generate(self, indicators: list[IndicatorResult], team_separation: float,
+                 seconds_per_frame: float | None = None) -> tuple[list[dict], list[dict]]:
+        """Applies every rule; returns (possible issues, recommendations), most confident first.
+
+        ``seconds_per_frame`` (frame stride / fps) turns analysed frames into seconds of play in the
+        plain-language explanation."""
         possible_issues: list[dict] = []
         recommendations: list[dict] = []
 
@@ -287,6 +428,7 @@ class TacticalInsightGenerator:
                     "confidence": confidence,
                     "severity": severity,
                     "related_indicators": [indicator.full_name],
+                    "explanation": plain_explanation(indicator, seconds_per_frame),
                 })
 
         possible_issues.sort(key=lambda item: item["confidence"], reverse=True)
