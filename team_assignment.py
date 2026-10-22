@@ -13,6 +13,7 @@ Known limitations (reported in the analysis warnings):
 """
 
 from __future__ import annotations
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Hashable
@@ -26,6 +27,11 @@ TEAM_B = "TEAM_B"
 UNASSIGNED = "UNASSIGNED"
 
 MIN_TRACKS_FOR_CLUSTERING = 4
+# The user's kit colour belongs to a team only if it is clearly closer to it than to the other one:
+# with real kits on 7 broadcast clips the right team was always at most 0.57 of the other distance,
+# while a green kit against red and blue teams gave 0.73 (it must not be forced into the red one).
+OWN_TEAM_MAX_RATIO = 0.65
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 OUTLIER_DISTANCE_FACTOR = 2.5
 
 
@@ -38,6 +44,29 @@ class TeamAssignmentResult:
     warnings: list[str]
     # Team of every player seen without a track id (key chosen by the caller, e.g. (frame, index)).
     detection_teams: dict[Hashable, str] = field(default_factory=dict)
+    # Which detected team wears the kit colour the user gave (None when not given or not clear).
+    own_team: str | None = None
+
+
+def hex_to_lab(hex_color: str) -> np.ndarray:
+    """"#rrggbb" -> Lab in OpenCV's 8-bit scale, the same space as the shirt samples."""
+    red, green, blue = (int(hex_color[index:index + 2], 16) for index in (1, 3, 5))
+    pixel = np.uint8([[[blue, green, red]]])
+    return cv2.cvtColor(pixel, cv2.COLOR_BGR2LAB)[0, 0].astype(np.float32)
+
+
+def match_own_team(team_centers: dict[str, np.ndarray], kit_color: str) -> tuple[str | None, float]:
+    """(team whose shirt colour is clearly the closest to ``kit_color`` or None, distance ratio).
+
+    The shirts measured in the video are an average with shadows, duller than the real kit, so no
+    absolute distance is required: the kit only has to be much closer to one team than to the other."""
+    target = hex_to_lab(kit_color)
+    distances = {team: float(np.linalg.norm(center - target)) for team, center in team_centers.items()}
+    if len(distances) != 2:
+        return None, 1.0
+    nearest, farthest = sorted(distances, key=distances.get)
+    ratio = distances[nearest] / distances[farthest] if distances[farthest] else 1.0
+    return (nearest if ratio <= OWN_TEAM_MAX_RATIO else None), round(ratio, 3)
 
 def _torso_color_lab(frame_bgr: np.ndarray, box: Detection) -> np.ndarray | None:
     """Mean Lab colour of the shirt area, ignoring green (pitch) pixels."""
@@ -92,8 +121,11 @@ class JerseyColorTeamClassifier:
         if color is not None:
             self._loose[key] = color
 
-    def assign(self) -> TeamAssignmentResult:
-        """Clusters the colour samples in two teams (k-means); tracks in neither stay UNASSIGNED."""
+    def assign(self, own_kit_color: str | None = None) -> TeamAssignmentResult:
+        """Clusters the colour samples in two teams (k-means); tracks in neither stay UNASSIGNED.
+
+        The teams are always found from the video alone. ``own_kit_color`` (#rrggbb, optional) only
+        says which of the two is the user's team; if it matches neither clearly, nothing is marked."""
         track_ids = [track_id for track_id, samples in self._samples.items() if samples]
         if len(track_ids) < MIN_TRACKS_FOR_CLUSTERING:
             return TeamAssignmentResult(
@@ -156,10 +188,20 @@ class JerseyColorTeamClassifier:
                 f"{outliers} trayectorias no coincidieron con el color de ningún equipo (posibles árbitros o arqueros)."
             )
 
+        own_team = None
+        if own_kit_color and HEX_COLOR.match(own_kit_color):
+            own_team, ratio = match_own_team({cluster_to_team[c]: centers[c] for c in (0, 1)}, own_kit_color)
+            if own_team is None:
+                warnings.append(
+                    f"El color de tu equipo ({own_kit_color.lower()}) no se parece claramente a ninguno de los dos "
+                    "equipos del video: se separaron los equipos automáticamente, sin marcar cuál es el tuyo."
+                )
+
         return TeamAssignmentResult(
             track_teams=track_teams,
             team_colors_hex={cluster_to_team[c]: _lab_to_hex(centers[c]) for c in (0, 1)},
             separation_score=separation_score,
             warnings=warnings,
             detection_teams=detection_teams,
+            own_team=own_team,
         )
