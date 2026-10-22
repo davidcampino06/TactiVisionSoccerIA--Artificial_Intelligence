@@ -107,6 +107,8 @@ class AnalysisOptions:
     # where it is twice as big for the 640 px model. The ball was seen twice as often, but the
     # results agreed less with the labelled clips (CALIBRATION.md), so the app does not use it.
     precise_ball: bool = False
+    # Kit colour of the user's team (#rrggbb), optional: it only says which detected team is his.
+    own_kit_color: str | None = None
 
 @dataclass
 class _FrameRecord:
@@ -182,7 +184,7 @@ class VideoAnalysisPipeline:
 
         # Warnings are shown to the user, so they are written in Spanish.
         warnings = list(extraction_stats["warnings"])
-        team_result = extraction_stats["team_classifier"].assign()
+        team_result = extraction_stats["team_classifier"].assign(options.own_kit_color)
         warnings.extend(team_result.warnings)
 
         snapshots = self._build_snapshots(records, team_result, video_info)
@@ -245,6 +247,8 @@ class VideoAnalysisPipeline:
                 "colors": team_result.team_colors_hex,
                 "separation_score": team_result.separation_score,
                 "track_teams": {str(k): v for k, v in team_result.track_teams.items()},
+                "own_team": team_result.own_team,
+                "own_kit_color": options.own_kit_color.lower() if options.own_kit_color else None,
             },
             "performance": {
                 "processing_seconds": round(processing_seconds, 2),
