@@ -88,6 +88,16 @@ Respuesta (resumen):
 }
 ```
 
+## Color de tu equipo (opcional)
+
+`POST /api/analyze` acepta `own_kit_color` (`#rrggbb`). Los dos equipos se separan **siempre** por el
+color de las camisetas del video; el color indicado solo dice cuál de los dos es el del usuario
+(`teams.own_team`). Como el color medido es un promedio con sombras (más apagado que el uniforme
+real), no se exige una distancia absoluta: el uniforme tiene que estar **claramente** más cerca de un
+equipo que del otro (distancia ≤ 0,65 de la del otro, `OWN_TEAM_MAX_RATIO`). Con uniformes reales en
+los clips de calibración el equipo correcto siempre quedó por debajo de 0,57; un uniforme verde
+contra un equipo rojo y uno azul da 0,73 y no se fuerza: el análisis lo avisa y no marca ninguno.
+
 ## Fases con y sin balón (`PossessionPhaseStrategy`)
 
 En cada cuadro con el balón visible, lo tiene el equipo del jugador más cercano si está a menos de
