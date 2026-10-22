@@ -28,6 +28,7 @@ from request_guard import SlidingWindowRateLimiter, matches_extension
 from schemas import AnalysisResponse, HealthResponse, ModelInfoResponse
 from simulation import run_simulation
 from tactical_analysis import ATTACK_LEFT_TO_RIGHT, ATTACK_RIGHT_TO_LEFT, ATTACK_UNKNOWN
+from team_assignment import HEX_COLOR
 
 configure_logging()
 if settings.inference_threads > 0:
@@ -207,10 +208,13 @@ def analyze_video(
     team_a_attack_direction: str = Form(ATTACK_UNKNOWN),
     pitch_filter: bool = Form(True),
     include_detections: bool = Form(True),
+    own_kit_color: str | None = Form(None),
 ) -> dict:
     """Analyses an uploaded match video and returns detections, tracks, indicators and possible issues."""
     if team_a_attack_direction not in (ATTACK_UNKNOWN, ATTACK_LEFT_TO_RIGHT, ATTACK_RIGHT_TO_LEFT):
         raise HTTPException(status_code=400, detail="Invalid team_a_attack_direction.")
+    if own_kit_color and not HEX_COLOR.match(own_kit_color):
+        raise HTTPException(status_code=400, detail="own_kit_color must be a #rrggbb colour.")
 
     try:
         detector = detector_provider.get()
@@ -226,6 +230,7 @@ def analyze_video(
         team_a_attack_direction=team_a_attack_direction,
         pitch_filter=pitch_filter,
         include_detections=include_detections,
+        own_kit_color=own_kit_color or None,
     )
     size_mb = video_path.stat().st_size / 1_048_576
     logger.info("Analysis started: %s %.1f MB, stride=%s, max_frames=%s, direction=%s",
