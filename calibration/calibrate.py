@@ -12,6 +12,7 @@ clip where the person saw the opposite problem, and, when the person listed what
 ("strengths": [...] in labels.json), how many of those the app found.
 
     python -m calibration.calibrate evaluate
+    python -m calibration.calibrate evaluate --clips "c*"      # only some clips (here: real broadcast)
 
 The clips are not committed (broadcast footage, and large): only the measurements and the labels.
 A rule "fires" exactly as in tactical_insights: at least MIN_SAMPLES frames and the threshold
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from fnmatch import fnmatch
 import re
 import sys
 from pathlib import Path
@@ -247,12 +249,15 @@ def main() -> int:
     run.add_argument("--output", type=Path, default=MEASUREMENTS)
     check = sub.add_parser("evaluate", help="compare the rules with labels.json")
     check.add_argument("--measurements", type=Path, default=MEASUREMENTS)
+    check.add_argument("--clips", nargs="+", default=["*"],
+                       help="only these clips (name patterns), e.g. 'c*' real broadcast, 'v*' eFootball")
     args = parser.parse_args()
     if args.command == "measure":
         measure(args.clips, args.output, args.precise_ball)
         return 0
     measurements = json.loads(args.measurements.read_text(encoding="utf-8"))
     labels = json.loads(LABELS.read_text(encoding="utf-8"))
+    labels = {clip: teams for clip, teams in labels.items() if any(fnmatch(clip, pattern) for pattern in args.clips)}
     print(json.dumps({"indicators": evaluate(measurements, labels),
                       "questions": question_scores(measurements, labels, DEFAULT_THRESHOLDS),
                       "strengths": strength_scores(measurements, labels)}, indent=1))
