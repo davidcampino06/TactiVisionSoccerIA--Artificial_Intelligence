@@ -144,6 +144,31 @@ Lo que sí se conservó: el balón debe tener **césped alrededor** (`_ball_on_p
 el escudo de un equipo en el marcador de la TV se detectaba como balón. Con el filtro el resultado
 del modo normal no cambia (20 aciertos, 3 falsas alarmas) y se evita ese error.
 
+### 6. Lo que el equipo hizo bien (fortalezas)
+
+Además de los posibles problemas, cada análisis dice lo que el equipo hizo bien
+(`tactical_strengths.py`). Una fortaleza es el espejo de un problema, pero más exigente: el
+indicador tiene que quedar claramente del lado bueno de un límite más estricto que el umbral del
+problema, en la mayoría de los momentos que importan (la misma fase del juego), y nunca se muestra
+si el problema contrario apareció para ese equipo.
+
+La regla de oro con los 7 clips fue **cero contradicciones**: ninguna fortaleza donde la persona vio
+el problema opuesto (`python -m calibration.calibrate evaluate`, sección `strengths`).
+
+| Fortaleza | Indicador y límite | Se muestra si | En los clips |
+|---|---|---|---|
+| Líneas juntas al defender | defensa–mediocampo ≤ 15 % del ancho | en ≥ 50 % de los cuadros | c1 Equipo B (sin el problema según la persona); 0 contradicciones |
+| Siempre con un compañero cerca | 0 jugadores aislados | en ≥ 90 % | c8 Equipo A; 0 contradicciones (con 85 % habría salido en c6, donde la persona vio el equipo partido) |
+| Presión sobre el balón | ≥ 1 defensor encima del balón | en ≥ 75 % | no salió: el balón se vio poco al defender (menos de 8 cuadros) |
+| Profundidad en ataque | ≥ 2 compañeros por delante del balón | en ≥ 75 % | c1 Equipo A; la persona no evaluó esta pregunta |
+
+Se dejaron fuera, a propósito, **bloque compacto** (área) y **distancia al compañero más cercano**:
+con la cámara de TV dependen tanto del zoom que en clips que la persona juzgó abiertos (c2, c3, c6)
+salían valores "compactos". Mostrar ahí una fortaleza habría sido un elogio falso.
+
+En la próxima ronda de clips, la persona además marca lo que cada equipo hizo bien
+(`"strengths": [...]` en `labels.json`), y el reporte cuenta cuántas encontró la app.
+
 ## Resultado
 
 Por pregunta y equipo (14 equipos, 96 respuestas en total), comparando lo que la app muestra con
