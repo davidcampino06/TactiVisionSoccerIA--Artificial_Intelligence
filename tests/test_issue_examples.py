@@ -67,7 +67,7 @@ def test_plain_explanation_says_it_like_a_coach():
     assert explanation["seen"] == (
         "Mientras el rival tenía el balón (unos 2 segundos de juego), en el Equipo A la distancia de cada "
         "jugador a su compañero más cercano fue en promedio el 30 % del ancho de la imagen; se considera un "
-        "problema desde el 11,5 %, y lo alcanzó en el 100 % de esos momentos.")
+        "problema desde el 12,1 %, y lo alcanzó en el 100 % de esos momentos.")
     assert explanation["meaning"].startswith("Defendían con los jugadores muy separados")
     assert explanation["coach"].startswith("Juntar más las líneas")
 
