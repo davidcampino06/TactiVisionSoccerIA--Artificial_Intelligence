@@ -6,6 +6,7 @@ whole process behind one call:
     Video -> frame extraction -> YOLO detection -> ByteTrack tracking
           -> team assignment -> positions -> tactical indicators
           -> possible issues (evidence + confidence) -> recommendations
+          -> what the team did well (strengths)
 
 Each step is implemented by a separate collaborator (Single Responsibility).
 """
@@ -35,8 +36,9 @@ from tactical_analysis import (
     possession_by_frame,
     resolve_attack_direction,
 )
-from issue_examples import attach_examples
+from issue_examples import attach_examples, attach_strength_examples
 from tactical_insights import MIN_SAMPLES, TacticalInsightGenerator
+from tactical_strengths import StrengthGenerator
 from team_assignment import TEAM_A, TEAM_B, UNASSIGNED, JerseyColorTeamClassifier, TeamAssignmentResult
 from tracking import TrackedDetection, TrackerFactory
 
@@ -200,15 +202,19 @@ class VideoAnalysisPipeline:
 
         indicators = self._tactical_analyzer.analyze(context)
         warnings.extend(phase_warnings(context, team_result.team_colors_hex))
-        possible_issues, recommendations = [], []
+        possible_issues, recommendations, strengths = [], [], []
         if extraction_stats["pitch_visible"] or not options.require_pitch_for_insights:
+            seconds_per_frame = options.frame_stride / video_info["fps"]
             possible_issues, recommendations = self._insight_generator.generate(
-                indicators, team_result.separation_score, seconds_per_frame=options.frame_stride / video_info["fps"]
+                indicators, team_result.separation_score, seconds_per_frame=seconds_per_frame
             )
             attach_examples(context, indicators, recommendations)
+            strengths = StrengthGenerator().generate(indicators, team_result.separation_score, possible_issues,
+                                                     seconds_per_frame=seconds_per_frame)
+            attach_strength_examples(context, indicators, strengths)
         else:
             warnings.append(
-                "NO se generaron posibles problemas tácticos ni recomendaciones porque el video "
+                "NO se generaron posibles problemas tácticos, fortalezas ni recomendaciones porque el video "
                 "no parece mostrar una cancha de fútbol."
             )
 
@@ -262,6 +268,7 @@ class VideoAnalysisPipeline:
             "proximity_network": network_snapshot(context),
             "possible_issues": possible_issues,
             "recommendations": recommendations,
+            "strengths": strengths,
             "warnings": warnings,
         }
 
