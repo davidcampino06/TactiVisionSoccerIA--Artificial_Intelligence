@@ -64,6 +64,19 @@ class RecommendationOut(BaseModel):
     # (issue_examples.py): players, ball and an overlay to draw on the pitch.
     explanation: dict[str, Any] | None = None
 
+class StrengthOut(BaseModel):
+    """Something the team did well (tactical_strengths.py), with its evidence and confidence."""
+    id: str
+    code: str
+    title: str
+    team: str
+    evidence: str
+    confidence: float = Field(ge=0, le=1)
+    confidence_breakdown: dict[str, float]
+    related_indicators: list[str]
+    # seen / meaning / keep, and one real frame that shows it (players, ball and an overlay).
+    explanation: dict[str, Any] | None = None
+
 class AnalysisResponse(BaseModel):
     """Body of POST /api/analyze and /api/analyze/simulation."""
     status: Literal["COMPLETED"]
@@ -91,4 +104,5 @@ class AnalysisResponse(BaseModel):
     proximity_network: dict[str, Any] | None = None
     possible_issues: list[PossibleIssueOut]
     recommendations: list[RecommendationOut]
+    strengths: list[StrengthOut] = []
     warnings: list[str]
