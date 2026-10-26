@@ -27,12 +27,26 @@ TEAM_B = "TEAM_B"
 UNASSIGNED = "UNASSIGNED"
 
 MIN_TRACKS_FOR_CLUSTERING = 4
-# The user's kit colour belongs to a team only if it is clearly closer to it than to the other one:
-# with real kits on 7 broadcast clips the right team was always at most 0.57 of the other distance,
-# while a green kit against red and blue teams gave 0.73 (it must not be forced into the red one).
-OWN_TEAM_MAX_RATIO = 0.65
+# The user's kit colour belongs to a team only if it is clearly closer to it than to the other one.
+# With the colour weights (stage 7), real kits on 7 broadcast clips and white / yellow kits on 6
+# eFootball clips gave at most 0.654 for the right team; a green kit against red and blue teams
+# must not be forced into the red one.
+OWN_TEAM_MAX_RATIO = 0.68
 HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
 OUTLIER_DISTANCE_FACTOR = 2.5
+# Weights of L (lightness), a and b when comparing shirts. Shadows and the camera change lightness a
+# lot, the colour itself much less: with full weight on L, a white team and a yellow one fell in the
+# same cluster and the split was "players in shadow" against "players in the light" (eFootball clips,
+# CALIBRATION.md stage 7). Lightness still counts, so white against black kits stays apart.
+COLOR_WEIGHTS = np.array([0.35, 1.0, 1.0], dtype=np.float32)
+# Tracks seen in fewer frames do not choose the team colours (one blurry sample is noise); they are
+# then given the nearest team like any other player.
+MIN_SAMPLES_TO_CLUSTER = 2
+# A "team" holding less than this share of the shirt samples is not a team: it is the goalkeeper,
+# the referee or a colourful outlier that pulled k-means to itself (a lone orange keeper against
+# white and black teams). Those tracks are set aside and the two teams are searched again.
+MIN_TEAM_SHARE = 0.2
+MAX_TRIMS = 2
 
 
 @dataclass
@@ -61,7 +75,8 @@ def match_own_team(team_centers: dict[str, np.ndarray], kit_color: str) -> tuple
     The shirts measured in the video are an average with shadows, duller than the real kit, so no
     absolute distance is required: the kit only has to be much closer to one team than to the other."""
     target = hex_to_lab(kit_color)
-    distances = {team: float(np.linalg.norm(center - target)) for team, center in team_centers.items()}
+    # Same weights as the clustering: the measured shirts are darker than the kit (shadows).
+    distances = {team: float(np.linalg.norm((center - target) * COLOR_WEIGHTS)) for team, center in team_centers.items()}
     if len(distances) != 2:
         return None, 1.0
     nearest, farthest = sorted(distances, key=distances.get)
@@ -139,11 +154,29 @@ class JerseyColorTeamClassifier:
                 ],
             )
 
-        features = np.array([np.median(self._samples[t], axis=0) for t in track_ids], dtype=np.float32)
+        colors = np.array([np.median(self._samples[t], axis=0) for t in track_ids], dtype=np.float32)
+        features = colors * COLOR_WEIGHTS
+        steady = np.array([len(self._samples[t]) >= MIN_SAMPLES_TO_CLUSTER for t in track_ids])
+        if steady.sum() < MIN_TRACKS_FOR_CLUSTERING:
+            steady[:] = True
+        weights = np.array([len(self._samples[t]) for t in track_ids], dtype=np.float32)
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 50, 0.5)
-        cv2.setRNGSeed(42)
-        _, labels, centers = cv2.kmeans(features, 2, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
-        labels = labels.flatten()
+        used = steady.copy()
+        for _ in range(MAX_TRIMS + 1):
+            cv2.setRNGSeed(42)
+            _, used_labels, centers = cv2.kmeans(features[used], 2, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
+            used_labels = used_labels.flatten()
+            shares = [weights[used][used_labels == cluster].sum() / weights[used].sum() for cluster in (0, 1)]
+            small = int(np.argmin(shares))
+            if shares[small] >= MIN_TEAM_SHARE or used.sum() - (used_labels == small).sum() < MIN_TRACKS_FOR_CLUSTERING:
+                break
+            used[np.flatnonzero(used)[used_labels == small]] = False  # keeper / referee: out, and search again
+        labels = np.argmin(np.linalg.norm(features[:, None, :] - centers[None, :, :], axis=2), axis=1)
+        for cluster in (0, 1):  # every cluster keeps at least one track (k-means guarantees it on the steady ones)
+            if not np.any(labels == cluster):
+                labels[int(np.argmin(np.linalg.norm(features - centers[cluster], axis=1)))] = cluster
+        # Team colours in plain Lab (for the swatches and the kit-colour match), from their tracks.
+        lab_centers = np.array([colors[labels == cluster].mean(axis=0) for cluster in (0, 1)], dtype=np.float32)
 
         # Deterministic naming: TEAM_A is the cluster that appears more on the left of the image.
         cluster_mean_x = [
@@ -173,7 +206,7 @@ class JerseyColorTeamClassifier:
 
         detection_teams: dict[Hashable, str] = {}
         for key, color in self._loose.items():
-            to_centers = np.linalg.norm(centers - color, axis=1)
+            to_centers = np.linalg.norm(centers - color * COLOR_WEIGHTS, axis=1)
             nearest = int(np.argmin(to_centers))
             detection_teams[key] = UNASSIGNED if is_outlier(float(to_centers[nearest])) else cluster_to_team[nearest]
 
@@ -190,7 +223,7 @@ class JerseyColorTeamClassifier:
 
         own_team = None
         if own_kit_color and HEX_COLOR.match(own_kit_color):
-            own_team, ratio = match_own_team({cluster_to_team[c]: centers[c] for c in (0, 1)}, own_kit_color)
+            own_team, ratio = match_own_team({cluster_to_team[c]: lab_centers[c] for c in (0, 1)}, own_kit_color)
             if own_team is None:
                 warnings.append(
                     f"El color de tu equipo ({own_kit_color.lower()}) no se parece claramente a ninguno de los dos "
@@ -199,7 +232,7 @@ class JerseyColorTeamClassifier:
 
         return TeamAssignmentResult(
             track_teams=track_teams,
-            team_colors_hex={cluster_to_team[c]: _lab_to_hex(centers[c]) for c in (0, 1)},
+            team_colors_hex={cluster_to_team[c]: _lab_to_hex(lab_centers[c]) for c in (0, 1)},
             separation_score=separation_score,
             warnings=warnings,
             detection_teams=detection_teams,
