@@ -87,11 +87,16 @@ def test_simulation_reports_strengths_with_their_drawing():
 
 
 def test_no_strength_where_the_coach_saw_the_opposite_problem():
-    """Calibration clips (CALIBRATION.md, stage 6): zero contradictions with the coach's labels."""
+    """Calibration clips (CALIBRATION.md, stages 6 and 7): zero contradictions with the coach's labels,
+    on the 7 broadcast clips and on the 6 eFootball clips."""
     here = Path(__file__).parents[1] / "calibration"
     measurements = json.loads((here / "measurements.json").read_text(encoding="utf-8"))
     labels = json.loads((here / "labels.json").read_text(encoding="utf-8"))
     scores = strength_scores(measurements, labels)
     assert all(row["contradictions"] == [] for row in scores.values())
-    assert scores["LINES_TOGETHER"]["shown_no_problem"] == ["c1_francia_marruecos:TEAM_B"]
     assert scores["NOBODY_ISOLATED"]["shown_no_problem"] == ["c8_tiro_esquina:TEAM_A"]
+    # Strict on purpose: of the 13 strengths the coach listed in the eFootball clips none is shown
+    # (the indicators do not back them up), and nothing is praised that the coach did not list
+    # except the attacking depth of v1's white team, a question he was not asked.
+    assert sum(row["found"] for row in scores.values()) == 0
+    assert sum(row["shown_not_listed"] for row in scores.values()) == 1
