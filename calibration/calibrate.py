@@ -6,7 +6,10 @@ keep, for each team, the value of every indicator in every analysed frame.
     python -m calibration.calibrate measure calibration/clips/*.mp4
 
 Step 2, evaluate: compare what the rules say with what a person saw in each clip
-(calibration/labels.json) and, for every rule, look for the threshold that agrees best.
+(calibration/labels.json) and, for every rule, look for the threshold that agrees best. The same
+report checks the strengths (tactical_strengths.py): a strength must never appear for a team in a
+clip where the person saw the opposite problem, and, when the person listed what the team did well
+("strengths": [...] in labels.json), how many of those the app found.
 
     python -m calibration.calibrate evaluate
 
@@ -30,6 +33,8 @@ from config import settings
 from pipeline import AnalysisOptions, VideoAnalysisPipeline
 from tactical_analysis import DEFAULT_THRESHOLDS, AnalysisContext, IndicatorResult, TacticalAnalyzer
 from tactical_insights import MIN_PERSISTENCE, MIN_SAMPLES
+from tactical_strengths import MIN_SAMPLES as STRENGTH_MIN_SAMPLES
+from tactical_strengths import STRENGTH_RULES
 
 HERE = Path(__file__).resolve().parent
 MEASUREMENTS = HERE / "measurements.json"
@@ -48,6 +53,15 @@ QUESTION_RULES: dict[str, list[str]] = {
     "no_pressure_on_ball": ["pressure_on_ball"],
     "narrow_attack": ["attacking_width", "team_width"],
     "crowded_zone": ["max_zone_concentration"],
+}
+
+
+# Strength -> the problem questions that contradict it (seeing that problem rules the strength out).
+STRENGTH_OPPOSITES: dict[str, list[str]] = {
+    "LINES_TOGETHER": ["lines_far_apart"],
+    "NOBODY_ISOLATED": ["players_far_from_teammates", "split_in_groups"],
+    "PRESSURE_ON_BALL": ["no_pressure_on_ball"],
+    "ATTACKING_DEPTH": [],
 }
 
 
@@ -191,6 +205,39 @@ def question_scores(measurements: dict, labels: dict, thresholds: dict[str, floa
     return result
 
 
+def strength_fires(values: list[float], rule) -> bool:
+    """Exactly as StrengthGenerator: enough frames and the good side in at least min_share of them."""
+    if len(values) < STRENGTH_MIN_SAMPLES:
+        return False
+    array = np.array(values)
+    good = array <= rule.limit if rule.direction == "below" else array >= rule.limit
+    return float(good.mean()) >= rule.min_share
+
+
+def strength_scores(measurements: dict, labels: dict) -> dict[str, dict]:
+    """Per strength: shown where the person saw the opposite problem (contradiction, must be 0),
+    shown where the person saw no problem, and against the person's own list of strengths."""
+    result = {}
+    for rule in STRENGTH_RULES:
+        row = {"contradictions": [], "shown_no_problem": [], "found": 0, "missed": 0, "shown_not_listed": 0}
+        for clip, teams in labels.items():
+            for team, answers in teams.items():
+                data = measurements.get(clip, {}).get("indicators", {}).get(f"{team.lower()}.{rule.indicator}")
+                shown = bool(data) and strength_fires(data["values"], rule)
+                opposite = [answers.get(question) for question in STRENGTH_OPPOSITES.get(rule.code, [])]
+                if shown and any(opposite):
+                    row["contradictions"].append(f"{clip}:{team}")
+                elif shown and opposite and all(value is False for value in opposite):
+                    row["shown_no_problem"].append(f"{clip}:{team}")
+                listed = answers.get("strengths")
+                if listed is not None:
+                    row["found"] += shown and rule.code in listed
+                    row["missed"] += (not shown) and rule.code in listed
+                    row["shown_not_listed"] += shown and rule.code not in listed
+        result[rule.code] = row
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -207,7 +254,8 @@ def main() -> int:
     measurements = json.loads(args.measurements.read_text(encoding="utf-8"))
     labels = json.loads(LABELS.read_text(encoding="utf-8"))
     print(json.dumps({"indicators": evaluate(measurements, labels),
-                      "questions": question_scores(measurements, labels, DEFAULT_THRESHOLDS)}, indent=1))
+                      "questions": question_scores(measurements, labels, DEFAULT_THRESHOLDS),
+                      "strengths": strength_scores(measurements, labels)}, indent=1))
     return 0
 
 
