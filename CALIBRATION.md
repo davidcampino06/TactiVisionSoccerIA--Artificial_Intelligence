@@ -4,8 +4,9 @@ Los umbrales de `DEFAULT_THRESHOLDS` (en `tactical_analysis.py`) empezaron como 
 heurísticos. Esta calibración los compara con lo que una persona ve en clips reales de
 transmisión de TV, con el mismo modo **rápido** que usa la app (`frame_stride` 5, `max_frames` 120).
 
-Es una calibración **orientativa**: 7 clips cortos y 1 persona etiquetando. Sirve para corregir
-umbrales que claramente no funcionaban con cámara de TV, no para afirmar una precisión general.
+Es una calibración **orientativa**: 7 clips cortos de TV, 6 clips de videojuego (eFootball, etapa 7)
+y 1 persona etiquetando. Sirve para corregir umbrales que claramente no funcionaban, no para
+afirmar una precisión general.
 
 ## Cómo se hizo
 
@@ -41,6 +42,12 @@ valores medidos y las etiquetas. `calibration/clips/` está en `.gitignore`.
 | Pase filtrado a gol | rojo oscuro | blanco | A: líneas separadas, poco compacto, no presiona. B: amontonado |
 | Presión | oscuro | amarillo | A: poco compacto. B: líneas separadas, poco compacto, no presiona |
 | Tiro de esquina a gol | blanco | rojo | Ambos: amontonados en el área (es normal en un córner) |
+
+Clips de **eFootball** (videojuego, etapa 7): el equipo blanco del usuario contra el BVB amarillo,
+de 20 a 26 segundos cada uno. El nombre dice lo que pasa: `v1_ataque_y_perdida`,
+`v2_perdida_de_balon_y_gol`, `v3_perdida_y_presion`, `v4_presion_tras_perdida`,
+`v5_salida_desde_el_arco_por_banda`, `v6_toques_seguidos`. En estos la persona marcó también lo que
+cada equipo hizo bien (`"strengths"` en `labels.json`).
 
 ## Lo que se encontró
 
@@ -157,7 +164,7 @@ el problema opuesto (`python -m calibration.calibrate evaluate`, sección `stren
 
 | Fortaleza | Indicador y límite | Se muestra si | En los clips |
 |---|---|---|---|
-| Líneas juntas al defender | defensa–mediocampo ≤ 15 % del ancho | en ≥ 50 % de los cuadros | c1 Equipo B (sin el problema según la persona); 0 contradicciones |
+| Líneas juntas al defender | defensa–mediocampo ≤ 15 % del ancho | en ≥ 50 % de los cuadros | c1 Equipo B (sin el problema según la persona); desde la etapa 7 queda en 44 % y ya no se muestra; 0 contradicciones |
 | Siempre con un compañero cerca | 0 jugadores aislados | en ≥ 90 % | c8 Equipo A; 0 contradicciones (con 85 % habría salido en c6, donde la persona vio el equipo partido) |
 | Presión sobre el balón | ≥ 1 defensor encima del balón | en ≥ 75 % | no salió: el balón se vio poco al defender (menos de 8 cuadros) |
 | Profundidad en ataque | ≥ 2 compañeros por delante del balón | en ≥ 75 % | c1 Equipo A; la persona no evaluó esta pregunta |
@@ -168,6 +175,60 @@ salían valores "compactos". Mostrar ahí una fortaleza habría sido un elogio f
 
 En la próxima ronda de clips, la persona además marca lo que cada equipo hizo bien
 (`"strengths": [...]` en `labels.json`), y el reporte cuenta cuántas encontró la app.
+
+### 7. Clips de videojuego: los equipos se separaban por la luz, no por la camiseta
+
+Con los 6 clips de eFootball apareció un error grave en la separación de equipos: en casi todos,
+el equipo blanco y el amarillo caían en el **mismo** grupo, y el otro grupo eran los jugadores en
+sombra. El color de cada camiseta se compara en Lab, y la claridad (L) pesaba tanto como el color:
+un jugador blanco a la sombra se parecía más a uno amarillo al sol que a otro blanco. Puede pasar
+igual en partidos reales con camisetas de claridad parecida.
+
+Cambios en `team_assignment.py`:
+
+- **La claridad pesa menos** (`COLOR_WEIGHTS = [0,35, 1, 1]`): manda el color. Blanco contra negro
+  sigue separándose, porque la diferencia de claridad es enorme.
+- **Arqueros y árbitros fuera del cálculo**: si un "equipo" junta menos del 20 % de las muestras
+  (`MIN_TEAM_SHARE`), son el arquero o el árbitro que arrastraron el grupo; se apartan y se buscan
+  de nuevo los dos equipos. En un clip real, un arquero naranja se llevaba un grupo entero.
+- Las trayectorias vistas en un solo cuadro ya no eligen los colores de los equipos.
+
+Resultado: en los 6 clips de eFootball, cerca del **99 %** de los jugadores quedan en su equipo
+(antes, alrededor de la mitad). El color de tu equipo (camiseta indicada al analizar) se compara
+con los mismos pesos; el límite pasó de 0,65 a 0,68 para que el blanco del videojuego (0,654) se
+reconozca, y un verde contra rojo y azul se sigue rechazando.
+
+**Umbrales con clips reales y de videojuego juntos.** Para calibrar se usaron los 7 clips reales y
+3 de eFootball (v1, v3, v5); los otros 3 (v2, v4, v6) quedaron **de prueba**: la IA nunca se ajustó
+con ellos. Solo se cambiaron umbrales con 5 casos medibles o más:
+
+| Indicador | Antes | Ahora |
+|---|---|---|
+| `average_player_distance` | 0,28 | 0,27 |
+| `team_compactness_area` | 0,12 | 0,136 |
+| `nearest_teammate_distance` | 0,115 | 0,121 |
+| `defensive_midfield_distance` | 0,18 | 0,169 |
+
+| Conjunto | Problemas encontrados | Falsas alarmas | Cuando avisa, acierta |
+|---|---|---|---|
+| 7 clips reales (etapa 2) | 20 de 47 | 3 | 87 % |
+| 7 clips reales (etapa 7) | 20 de 47 | 5 | 80 % |
+| 3 clips de juego para calibrar | 4 de 10 | 13 (antes 15) | 24 % |
+| **3 clips de juego de prueba (no vistos)** | **3 de 7** | **11** | **21 %** |
+
+Lectura honesta: **en el videojuego la IA y la persona no coinciden**. La mayoría de las falsas
+alarmas son "equipo poco compacto" y "equipo partido en grupos": en el juego los equipos se ven
+mucho más abiertos que en la TV (la cámara del juego es más abierta, los jugadores miden 7 % de la
+imagen contra 10 % en la TV, y además se ve casi todo el equipo), y la persona los juzgó bien
+ordenados. Convertir las distancias a metros aproximados con la altura de los jugadores no lo
+arregló: en metros los equipos del juego quedan todavía más separados. Bajar los umbrales al nivel
+del videojuego haría que en partidos reales dejara de avisar problemas verdaderos, así que se
+mantienen los de los partidos reales, ajustados apenas. Con las fortalezas pasó lo mismo: la persona
+marcó 13 en los clips del juego y la app no confirma ninguna con sus indicadores, pero tampoco
+elogió nada que la persona viera como problema (0 contradicciones).
+
+Para medir en serio, lo que más ayudaría son **más clips de partidos reales** de TV, etiquetados
+por alguien del cuerpo técnico.
 
 ## Resultado
 
