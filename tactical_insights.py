@@ -355,7 +355,9 @@ def _plain_duration(samples: int, seconds_per_frame: float | None) -> str:
     if seconds < 1:
         return "menos de 1 segundo de juego"
     rounded = round(seconds)
-    return f"unos {rounded} segundo{'s' if rounded != 1 else ''} de juego"
+    if rounded == 1:
+        return "cerca de 1 segundo de juego"
+    return f"unos {rounded} segundos de juego"
 
 
 def plain_explanation(indicator: IndicatorResult, seconds_per_frame: float | None = None) -> dict | None:
