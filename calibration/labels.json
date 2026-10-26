@@ -138,5 +138,159 @@
    "narrow_attack": null,
    "crowded_zone": true
   }
+ },
+ "v1_ataque_y_perdida": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": [
+    "PRESSURE_ON_BALL"
+   ]
+  },
+  "TEAM_B": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": true,
+   "crowded_zone": true,
+   "strengths": [
+    "LINES_TOGETHER",
+    "NOBODY_ISOLATED",
+    "PRESSURE_ON_BALL"
+   ]
+  }
+ },
+ "v2_perdida_de_balon_y_gol": {
+  "TEAM_A": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": true,
+   "split_in_groups": true,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": null
+  },
+  "TEAM_B": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": null
+  }
+ },
+ "v3_perdida_y_presion": {
+  "TEAM_A": {
+   "lines_far_apart": true,
+   "not_compact": true,
+   "players_far_from_teammates": null,
+   "split_in_groups": null,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": [
+    "PRESSURE_ON_BALL"
+   ]
+  },
+  "TEAM_B": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": true,
+   "crowded_zone": true,
+   "strengths": [
+    "NOBODY_ISOLATED"
+   ]
+  }
+ },
+ "v4_presion_tras_perdida": {
+  "TEAM_B": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": null,
+   "split_in_groups": null,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": [
+    "LINES_TOGETHER",
+    "PRESSURE_ON_BALL"
+   ]
+  },
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": null,
+   "split_in_groups": null,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": [
+    "LINES_TOGETHER"
+   ]
+  }
+ },
+ "v5_salida_desde_el_arco_por_banda": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": true,
+   "crowded_zone": true,
+   "strengths": [
+    "NOBODY_ISOLATED",
+    "ATTACKING_DEPTH"
+   ]
+  },
+  "TEAM_B": {
+   "lines_far_apart": null,
+   "not_compact": null,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": [
+    "NOBODY_ISOLATED"
+   ]
+  }
+ },
+ "v6_toques_seguidos": {
+  "TEAM_A": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": null,
+   "split_in_groups": null,
+   "no_pressure_on_ball": false,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": []
+  },
+  "TEAM_B": {
+   "lines_far_apart": false,
+   "not_compact": false,
+   "players_far_from_teammates": false,
+   "split_in_groups": false,
+   "no_pressure_on_ball": true,
+   "narrow_attack": false,
+   "crowded_zone": false,
+   "strengths": [
+    "NOBODY_ISOLATED"
+   ]
+  }
  }
 }
