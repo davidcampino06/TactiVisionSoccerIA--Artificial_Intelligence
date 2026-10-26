@@ -16,8 +16,9 @@ from tactical_analysis import (
     ATTACK_LEFT_TO_RIGHT, AnalysisContext, FrameSnapshot, PlayerPosition, TacticalAnalyzer, network_snapshot,
 )
 from tactical_insights import TacticalInsightGenerator
+from tactical_strengths import StrengthGenerator
 from team_assignment import TEAM_A, TEAM_B
-from issue_examples import attach_examples
+from issue_examples import attach_examples, attach_strength_examples
 
 # Outfield shapes in image coordinates (x along pitch length, y along pitch width).
 TEAM_A_SHAPE = [  # 4-4-2 attacking left -> right, deliberately stretched between lines
@@ -55,6 +56,8 @@ def run_simulation(frames: int = 120, seed: int = 7) -> dict:
     possible_issues, recommendations = TacticalInsightGenerator().generate(indicators, team_separation=1.0,
                                                                            seconds_per_frame=1 / 25.0)
     attach_examples(context, indicators, recommendations)
+    strengths = StrengthGenerator().generate(indicators, 1.0, possible_issues, seconds_per_frame=1 / 25.0)
+    attach_strength_examples(context, indicators, strengths)
 
     return {
         "status": "COMPLETED",
@@ -91,5 +94,6 @@ def run_simulation(frames: int = 120, seed: int = 7) -> dict:
         "proximity_network": network_snapshot(context),
         "possible_issues": possible_issues,
         "recommendations": recommendations,
+        "strengths": strengths,
         "warnings": ["MODO SIMULACIÓN: posiciones sintéticas, no es un análisis de video real."],
     }
