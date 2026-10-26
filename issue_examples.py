@@ -1,4 +1,4 @@
-"""One real frame that shows each possible tactical issue on the pitch.
+"""One real frame that shows each possible tactical issue (or strength) on the pitch.
 
 For every recommendation the analysis keeps the snapshot (players, teams, ball) of a frame where
 the rule was really crossed, and a small overlay that explains it: the nearest team-mate of each
@@ -39,6 +39,7 @@ from tactical_analysis import (
     in_phase,
     possession_by_frame,
 )
+from tactical_strengths import RULE_BY_CODE, is_good
 
 STRATEGY_OF: dict[str, type[IndicatorStrategy]] = {
     "team_width": TeamShapeStrategy,
@@ -80,22 +81,27 @@ def _crosses(value: float, indicator: IndicatorResult) -> bool:
 
 
 def representative_frame(context: AnalysisContext, indicator: IndicatorResult,
-                         owners: list[str | None]) -> tuple[int, float] | None:
+                         owners: list[str | None], shows: Callable[[float], bool] | None = None,
+                         target: float | None = None) -> tuple[int, float] | None:
     """(snapshot index, value) of the crossing frame that best shows the issue.
 
     Only frames where most of the team is visible compete (at least 3/4 of the best one), so the
     drawing shows the whole picture; among them, the value closest to the reported average wins
-    (representative, not the most extreme), then the earliest frame."""
+    (representative, not the most extreme), then the earliest frame. ``shows`` and ``target`` pick
+    other frames, e.g. the ones that show a strength (value on the good side) and their average."""
+    shows = shows or (lambda value: _crosses(value, indicator))
     candidates = []
     for index, (snapshot, owner) in enumerate(zip(context.snapshots, owners)):
         if indicator.phase and not in_phase(indicator.phase, owner, indicator.team):
             continue
         value = frame_value(context, snapshot, indicator)
-        if value is not None and _crosses(value, indicator):
+        if value is not None and shows(value):
             visible = len(snapshot.players) if indicator.team == "MATCH" else len(snapshot.team_players(indicator.team))
             candidates.append((abs(value - indicator.value), index, value, visible))
     if not candidates:
         return None
+    if target is not None:
+        candidates = [(abs(value - target), index, value, visible) for _, index, value, visible in candidates]
     most = max(visible for *_, visible in candidates)
     best = min(item for item in candidates if item[3] >= 0.75 * most)
     return best[1], best[2]
@@ -207,9 +213,10 @@ OVERLAYS: dict[str, Callable] = {
 }
 
 
-def build_example(context: AnalysisContext, indicator: IndicatorResult, owners: list[str | None]) -> dict | None:
+def build_example(context: AnalysisContext, indicator: IndicatorResult, owners: list[str | None],
+                  shows: Callable[[float], bool] | None = None, target: float | None = None) -> dict | None:
     """Snapshot + overlay of a representative frame for one indicator, ready to draw (or None)."""
-    found = representative_frame(context, indicator, owners)
+    found = representative_frame(context, indicator, owners, shows, target)
     if found is None:
         return None
     index, value = found
@@ -240,3 +247,19 @@ def attach_examples(context: AnalysisContext, indicators: list[IndicatorResult],
         if explanation is None or indicator is None:
             continue
         explanation["example"] = build_example(context, indicator, owners)
+
+
+def attach_strength_examples(context: AnalysisContext, indicators: list[IndicatorResult], strengths: list[dict]) -> None:
+    """Adds ``explanation.example`` to every strength: a frame on the good side, close to their average."""
+    by_name = {indicator.full_name: indicator for indicator in indicators}
+    owners = possession_by_frame(context)
+    for strength in strengths:
+        rule = RULE_BY_CODE.get(strength["code"])
+        names = strength.get("related_indicators") or []
+        indicator = by_name.get(names[0]) if names else None
+        if rule is None or indicator is None or strength.get("explanation") is None:
+            continue
+        good_values = [value for value in indicator.values if is_good(value, rule)]
+        target = float(np.mean(good_values)) if good_values else None
+        strength["explanation"]["example"] = build_example(
+            context, indicator, owners, shows=lambda value, rule=rule: is_good(value, rule), target=target)
