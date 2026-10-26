@@ -44,11 +44,11 @@ ATTACK_UNKNOWN = "unknown"
 # more of the problems a person saw, without adding false alarms, were changed.
 DEFAULT_THRESHOLDS: dict[str, float] = {
     "team_width": 0.30,                    # below -> possible insufficient width
-    "average_player_distance": 0.28,       # above -> possible low compactness (was 0.30)
-    "team_compactness_area": 0.12,         # above -> possible low compactness (was 0.25: never fired)
-    "nearest_teammate_distance": 0.115,    # above -> possible excessive spacing (was 0.15)
+    "average_player_distance": 0.27,       # above -> possible low compactness (0.30, 0.28; stage 7: 0.27)
+    "team_compactness_area": 0.136,        # above -> possible low compactness (0.25 never fired; 0.12; stage 7: 0.136)
+    "nearest_teammate_distance": 0.121,    # above -> possible excessive spacing (0.15, 0.115; stage 7: 0.121)
     "defensive_line_position": 0.15,       # below -> possible line too deep (image relative)
-    "defensive_midfield_distance": 0.18,   # above -> possible excessive distance between lines (was 0.22)
+    "defensive_midfield_distance": 0.169,  # above -> possible excessive distance between lines (0.22, 0.18; stage 7: 0.169)
     "largest_line_gap": 0.22,              # above -> same issue when direction is unknown
     "max_zone_concentration": 0.45,        # above -> possible high concentration in one zone
     "max_zone_numerical_difference": 3.0,  # at/above -> possible numerical imbalance
