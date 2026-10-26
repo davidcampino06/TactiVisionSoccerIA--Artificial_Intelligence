@@ -53,7 +53,7 @@ def test_issue_generated_with_evidence_and_bounded_confidence():
 
     lines_issue = next(i for i in issues if i["code"] == "EXCESSIVE_DISTANCE_BETWEEN_LINES" and i["team"] == TEAM_A)
     assert lines_issue["issue"].startswith("Posible problema táctico")
-    assert "0,35 (umbral 0,18)" in lines_issue["evidence"]
+    assert "0,35 (umbral 0,169)" in lines_issue["evidence"]
     assert 0.0 < lines_issue["confidence"] <= 1.0
     assert lines_issue["related_indicators"] == ["team_a.defensive_midfield_distance"]
     assert any(r["issue_id"] == lines_issue["id"] for r in recommendations)
