@@ -227,12 +227,16 @@ contra la ejecución `.pt` en PyTorch (ver `MODEL_EVALUATION.md`). Para RT-DETR 
   El balón es pequeño y su detección en planos abiertos es baja; se reporta `ball_detection_rate`.
 - No hay calibración de cancha (homografía): las métricas son relativas a la imagen y asumen la
   cámara principal de transmisión (largo de cancha = eje X).
-- Equipos por color: árbitros/porteros quedan `UNASSIGNED`; kits parecidos bajan `separation_score`.
+- Equipos por color: manda el color de la camiseta más que la luz (sombras), y el arquero o el árbitro
+  que arrastran un grupo se apartan; árbitros/porteros quedan `UNASSIGNED`; kits parecidos bajan
+  `separation_score`.
 - `defensive_line_position` depende del encuadre: con cámara que se mueve es solo orientativo
   (por eso su regla tiene `reliability=0.6`).
 - Si el video no muestra césped en la mayoría de frames, **no se generan problemas tácticos**.
-- Los umbrales en `DEFAULT_THRESHOLDS` se calibraron con 7 clips reales de TV (ver
-  [CALIBRATION.md](CALIBRATION.md)); es una calibración orientativa, no una precisión garantizada.
+- Los umbrales en `DEFAULT_THRESHOLDS` se calibraron con 7 clips reales de TV y 3 de eFootball, y se
+  probaron con otros 3 de eFootball que la IA no había visto (ver [CALIBRATION.md](CALIBRATION.md)):
+  en partidos reales, cuando avisa acierta el 80 %; en el videojuego la IA ve los equipos más
+  abiertos de lo que los juzga una persona. Es una calibración orientativa, no una precisión garantizada.
 
 ## Render
 
