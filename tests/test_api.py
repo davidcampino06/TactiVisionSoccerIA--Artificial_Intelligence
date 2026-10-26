@@ -91,8 +91,9 @@ def test_analyze_detects_people_in_real_photo_video(people_video):
     assert body["players_detected"] >= 1
     assert body["tracking"], "ByteTrack should produce at least one track"
     assert all(track["frames_seen"] >= 1 for track in body["tracking"])
-    # Not a football pitch -> no tactical issues must be invented.
+    # Not a football pitch -> no tactical issues (and no strengths) must be invented.
     assert body["possible_issues"] == []
+    assert body["strengths"] == []
 
 
 def test_simulation_is_clearly_labelled():
@@ -113,3 +114,15 @@ def test_simulation_recommendations_carry_their_explanation():
         explanation = recommendation["explanation"]
         assert explanation["seen"] and explanation["meaning"] and explanation["coach"]
         assert explanation["example"]["players"], recommendation["issue_id"]
+
+
+def test_simulation_strengths_reach_the_api_response():
+    """What the team did well travels with its explanation and its example frame."""
+    with TestClient(app) as client:
+        body = client.post("/api/analyze/simulation", data={"frames": "60"}, headers=API_HEADERS).json()
+    assert body["strengths"], "the synthetic match has at least one clear strength"
+    for strength in body["strengths"]:
+        assert strength["title"] and strength["team"] in ("TEAM_A", "TEAM_B")
+        explanation = strength["explanation"]
+        assert explanation["seen"] and explanation["meaning"] and explanation["keep"]
+        assert explanation["example"]["players"], strength["id"]
