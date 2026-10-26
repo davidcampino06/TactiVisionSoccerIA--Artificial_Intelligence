@@ -57,7 +57,7 @@ from pathlib import Path
 
 import pytest
 
-from team_assignment import hex_to_lab, match_own_team
+from team_assignment import OWN_TEAM_MAX_RATIO, hex_to_lab, match_own_team
 
 
 def _two_team_classifier():
@@ -92,6 +92,9 @@ REAL_KITS = [
     ("c3_contraataque_banda", "#ffffff", TEAM_A), ("c3_contraataque_banda", "#dc052d", TEAM_B),
     ("c6_pase_filtrado", "#8e1f2f", TEAM_A), ("c6_pase_filtrado", "#ffffff", TEAM_B),
     ("c7_presion", "#0e1f4d", TEAM_A), ("c7_presion", "#f2d335", TEAM_B),
+    # eFootball: the white team against BVB's yellow (CALIBRATION.md, stage 7).
+    ("v1_ataque_y_perdida", "#ffffff", TEAM_A), ("v1_ataque_y_perdida", "#fde100", TEAM_B),
+    ("v4_presion_tras_perdida", "#ffffff", TEAM_B), ("v4_presion_tras_perdida", "#fde100", TEAM_A),
 ]
 
 
@@ -99,4 +102,37 @@ REAL_KITS = [
 def test_real_kits_find_their_team_in_broadcast_clips(clip, kit, team):
     centers = {name: hex_to_lab(color) for name, color in MEASURED[clip]["colors"].items()}
     found, ratio = match_own_team(centers, kit)
-    assert found == team and ratio < 0.6
+    assert found == team and ratio < OWN_TEAM_MAX_RATIO
+
+
+# ---------------------------------------------------------------- shade and keepers (stage 7)
+WHITE, WHITE_IN_SHADE = (235, 235, 235), (120, 120, 120)          # BGR
+YELLOW, YELLOW_IN_SHADE = (40, 215, 240), (20, 110, 125)
+ORANGE_KEEPER = (20, 120, 250)
+
+
+def test_shade_does_not_split_the_teams():
+    """A white team and a yellow one, half of each in the shade: the split is by shirt, not by light."""
+    players = [(1, WHITE), (2, WHITE_IN_SHADE), (3, WHITE), (4, WHITE_IN_SHADE),
+               (5, YELLOW), (6, YELLOW_IN_SHADE), (7, YELLOW), (8, YELLOW_IN_SHADE)]
+    frame, detections = painted(players)
+    classifier = JerseyColorTeamClassifier()
+    for _ in range(3):
+        classifier.collect(frame, [TrackedDetection(track_id, d) for (track_id, _), d in zip(players, detections)])
+    teams = classifier.assign().track_teams
+    assert teams[1] == teams[2] == teams[3] == teams[4] != teams[5]
+    assert teams[5] == teams[6] == teams[7] == teams[8]
+
+
+def test_a_lone_keeper_does_not_become_a_team():
+    """White and dark kits plus one orange keeper seen in every frame: the keeper is set aside."""
+    dark = (40, 40, 40)
+    players = [(1, WHITE), (2, WHITE), (3, WHITE), (4, WHITE), (5, dark), (6, dark), (7, dark), (8, dark),
+               (9, ORANGE_KEEPER)]
+    frame, detections = painted(players)
+    classifier = JerseyColorTeamClassifier()
+    for _ in range(3):
+        classifier.collect(frame, [TrackedDetection(track_id, d) for (track_id, _), d in zip(players, detections)])
+    teams = classifier.assign().track_teams
+    assert teams[1] == teams[4] != teams[5] == teams[8]
+    assert teams[9] != teams[1]
