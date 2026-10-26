@@ -139,6 +139,24 @@ más cercano, área del bloque, grupos de la red, hueco entre líneas, zona más
 a banda, radio de presión alrededor del balón o jugadores por delante del balón. Las posiciones son
 las de la imagen (no hay calibración de cancha): la app lo dice al mostrarla.
 
+## Lo que el equipo hizo bien (`strengths`)
+
+La respuesta trae también `strengths`: lo que cada equipo hizo bien, con el mismo formato que las
+alertas (evidencia, confianza, indicador) y una explicación en lenguaje de fútbol:
+
+| Campo | Qué es |
+|---|---|
+| `seen` | Qué vio la IA, con los números: "Mientras el rival tenía el balón (unos 4 segundos de juego), en el Equipo A el espacio entre la línea de defensas y la de mediocampistas fue menor al 15 % del ancho de la imagen en el 80 % de esos momentos…" |
+| `meaning` | Qué significa en la cancha |
+| `keep` | Cómo mantenerlo |
+| `example` | Un cuadro real del lado bueno, el más cercano al promedio, con el mismo dibujo que las alertas |
+
+Hoy son cuatro: **líneas juntas al defender**, **siempre con un compañero cerca**, **presión sobre
+el balón** y **profundidad en ataque**. Se muestran solo si el dato es claro y sostenido (un límite
+más estricto que el del problema, en la mayoría de los momentos) y nunca junto al problema
+contrario del mismo equipo. Cómo se eligieron y por qué no hay "bloque compacto":
+[CALIBRATION.md](CALIBRATION.md), etapa 6.
+
 ## Dirección de ataque automática
 
 Si el usuario no indica hacia dónde ataca el Equipo A, `detect_attack_direction` la estima: cada
