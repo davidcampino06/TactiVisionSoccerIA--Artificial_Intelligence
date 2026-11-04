@@ -62,6 +62,30 @@ Cada capa está separada y es explicable:
 | GET | `/api/model` | Modelo configurado, runtime, tracker, versión, si cargó y errores |
 | POST | `/api/analyze` | `multipart/form-data`: `video` + parámetros opcionales (ver abajo) |
 | POST | `/api/analyze/simulation` | SIMULATION MODE (sin video). Parámetros `frames`, `seed` |
+| POST | `/api/video-quality` | Revisión del clip antes de analizar (`video_quality.py`): `video` + `fast_stride`, `fast_max_frames`, `full_stride`, `full_max_frames` |
+
+### Revisión del clip (`/api/video-quality`)
+
+El análisis toma los cuadros **desde el inicio** hasta su tope (`max_frames`): con un clip más largo,
+el final no se analiza. Desde esta versión el análisis lo avisa, y antes de analizar se puede revisar
+el clip en unos segundos. Cada revisión dice si es **medida** (del archivo o contada por el modelo) o
+**estimada** (heurística de imagen):
+
+| Revisión | Tipo | Cómo |
+|---|---|---|
+| Duración y cobertura de cada modo | medida | cuadros, fps y tope de cuadros |
+| Resolución y fps | medida | del archivo |
+| Cancha visible | medida | máscara de verde en 8 cuadros (la misma del análisis) |
+| Jugadores en la cancha | medida | YOLO en 8 cuadros: 4 por equipo para los indicadores de equipo, 6 para los de líneas |
+| Balón | medida | YOLO en los mismos 8 cuadros |
+| Cambios bruscos de imagen | estimada | histograma de color y diferencia de grises cada 0,2 s (repeticiones, primeros planos, gráficos) |
+| Distancia de cámara | estimada | altura mediana de los jugadores |
+| Iluminación | medida | brillo medio; solo se marcan valores extremos |
+
+Los umbrales salen de los 13 clips de calibración: en ellos un paneo nunca bajó de 0,97 de correlación
+ni pasó de 18 de diferencia, y los cortes reales (primeros planos, el gráfico de gol) sí. La nitidez no
+se revisa: con desenfoque fuerte, imágenes más oscuras y 426 px YOLO siguió detectando a los mismos
+jugadores, así que avisaría de clips que funcionan.
 
 Parámetros de `/api/analyze`: `confidence_threshold` (0.25), `frame_stride` (3), `max_frames` (300),
 `team_a_attack_direction` (`unknown` | `left_to_right` | `right_to_left`), `pitch_filter` (true),
