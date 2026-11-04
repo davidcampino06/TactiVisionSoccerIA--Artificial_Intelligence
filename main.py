@@ -25,10 +25,11 @@ from detectors import SUPPORTED_MODELS, DetectorFactory, ModelLoadError, ObjectD
 from log_setup import configure_logging
 from pipeline import AnalysisOptions, VideoAnalysisPipeline, VideoProcessingError
 from request_guard import SlidingWindowRateLimiter, matches_extension
-from schemas import AnalysisResponse, HealthResponse, ModelInfoResponse
+from schemas import AnalysisResponse, HealthResponse, ModelInfoResponse, QualityResponse
 from simulation import run_simulation
 from tactical_analysis import ATTACK_LEFT_TO_RIGHT, ATTACK_RIGHT_TO_LEFT, ATTACK_UNKNOWN
 from team_assignment import HEX_COLOR
+from video_quality import Mode, assess
 
 configure_logging()
 if settings.inference_threads > 0:
@@ -245,6 +246,36 @@ def analyze_video(
         logger.warning("Analysis failed: %s", error)
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
     finally:
+        video_path.unlink(missing_ok=True)
+
+@app.post("/api/video-quality", response_model=QualityResponse,
+          dependencies=[Depends(rate_limit), Depends(verify_api_key)])
+def check_video_quality(
+    video: UploadFile = File(...),
+    fast_stride: int = Form(5, ge=1, le=60),
+    fast_max_frames: int = Form(120, ge=1, le=5000),
+    full_stride: int = Form(3, ge=1, le=60),
+    full_max_frames: int = Form(300, ge=1, le=5000),
+) -> dict:
+    """Checks whether a clip is fit for the analysis and how much of it each mode would analyse.
+
+    Reads the part the longest mode would analyse and runs the model on 8 frames: a few seconds."""
+    try:
+        detector = detector_provider.get()
+    except ModelLoadError as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+    video_path = _save_upload(video)
+    # The model runs one video at a time: a check never waits minutes behind a running analysis.
+    if not detector_provider.analysis_lock.acquire(timeout=5):
+        video_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail="The AI is analysing another video; try the check again in a moment.")
+    try:
+        return assess(video_path, detector, Mode(fast_stride, fast_max_frames), Mode(full_stride, full_max_frames))
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    finally:
+        detector_provider.analysis_lock.release()
         video_path.unlink(missing_ok=True)
 
 @app.post("/api/analyze/simulation", response_model=AnalysisResponse,
