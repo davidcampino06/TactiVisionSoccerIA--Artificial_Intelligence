@@ -71,6 +71,20 @@ def find_ball_in_halves(detector: ObjectDetector, frame: np.ndarray, threshold: 
     return found
 
 
+def coverage_warning(records: list, video_info: dict, options: "AnalysisOptions") -> str | None:
+    """Frames are taken from the start until max_frames: say so when the end of the clip was left out."""
+    duration = video_info.get("duration_seconds")
+    if not records or not duration:
+        return None
+    analysed = (records[-1].frame_number + max(1, options.frame_stride)) / video_info["fps"]
+    if duration - analysed <= 1.0:
+        return None
+    def seconds(value: float) -> str:
+        return f"{value:.0f}" if value >= 10 else f"{value:.1f}".replace(".", ",")
+    return (f"Solo se analizaron los primeros {seconds(analysed)} s de un video de {seconds(duration)} s: el análisis "
+            f"llega hasta {options.max_frames} cuadros. Para estudiar el resto, recorta el clip o usa el modo completo.")
+
+
 def phase_warnings(context: AnalysisContext, team_colors: dict[str, str]) -> list[str]:
     """Says which team could not be judged on its defensive shape (too few frames defending)."""
     if not team_colors:
@@ -186,6 +200,9 @@ class VideoAnalysisPipeline:
 
         # Warnings are shown to the user, so they are written in Spanish.
         warnings = list(extraction_stats["warnings"])
+        coverage = coverage_warning(records, video_info, options)
+        if coverage:
+            warnings.insert(0, coverage)
         team_result = extraction_stats["team_classifier"].assign(options.own_kit_color)
         warnings.extend(team_result.warnings)
 
