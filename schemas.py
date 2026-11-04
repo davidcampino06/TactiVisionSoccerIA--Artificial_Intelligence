@@ -106,3 +106,21 @@ class AnalysisResponse(BaseModel):
     recommendations: list[RecommendationOut]
     strengths: list[StrengthOut] = []
     warnings: list[str]
+
+
+class QualityCheck(BaseModel):
+    """One check of the clip: MEASURED from the file or the model, or ESTIMATED with an image heuristic."""
+    code: str
+    status: Literal["ok", "warn", "bad"]
+    measured: bool
+    title: str
+    detail: str
+    value: Any = None
+
+
+class QualityResponse(BaseModel):
+    """Body of POST /api/video-quality: is the clip fit for the analysis (video_quality.py)."""
+    verdict: Literal["ok", "warn", "bad"]
+    video: dict[str, Any]
+    sampled_frames: int
+    checks: list[QualityCheck]
