@@ -134,6 +134,43 @@ def test_a_track_seen_once_is_never_linked():
     assert stitch_tracks(summarize_tracks(frames(a, b))) == []
 
 
+def many_tracks(count, seed=1):
+    """Short random tracks over ten minutes, as a long video analysed frame by frame gives."""
+    from track_stitching import TrackSummary
+
+    rng = np.random.default_rng(seed)
+    summaries = {}
+    for track_id in range(count):
+        start, length = rng.uniform(0, 600), rng.uniform(0.2, 5)
+        point = rng.uniform(0, 1900, 2)
+        summaries[track_id] = TrackSummary(
+            track_id, int(start * FPS), int((start + length) * FPS), start, start + length, point,
+            point + rng.normal(0, 50, 2), rng.normal(0, 100, 2), rng.normal(0, 100, 2), 80.0, 10)
+    return summaries
+
+
+def test_only_tracks_starting_right_after_are_compared_and_the_result_is_the_same():
+    import time
+
+    summaries = many_tracks(1500)
+    every_pair = sorted(
+        (link for a in summaries.values() for b in summaries.values() if a is not b
+         for link in [score_link(a, b)] if link is not None and link.confidence >= 0.5),
+        key=lambda link: (-link.confidence, link.gap_seconds, link.from_track, link.to_track))
+    used_from, used_to, expected = set(), set(), []
+    for link in every_pair:
+        if link.from_track not in used_from and link.to_track not in used_to:
+            used_from.add(link.from_track)
+            used_to.add(link.to_track)
+            expected.append((link.from_track, link.to_track))
+    assert [(link.from_track, link.to_track) for link in stitch_tracks(summaries)] == expected
+
+    large = many_tracks(4000, seed=2)
+    started = time.perf_counter()
+    stitch_tracks(large)
+    assert time.perf_counter() - started < 1.5  # all pairs took about 3 s on the same machine
+
+
 def hidden_player_video(tmp_path):
     """A red player walks, is hidden for 1.3 s (the tracker forgets him) and comes back; a blue one stands."""
     import cv2
