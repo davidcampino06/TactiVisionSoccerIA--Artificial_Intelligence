@@ -33,9 +33,10 @@ from tracking import TrackedDetection
 
 MAX_GAP_SECONDS = 1.5
 # Allowed distance between the predicted and the real start of B, in box heights: a base error plus
-# what a change of direction can add per second of gap.
-BASE_RADIUS_HEIGHTS = 0.75
-RADIUS_PER_SECOND_HEIGHTS = 2.0
+# what a change of direction can add per second of gap. Measured on a real broadcast clip
+# (MODEL_EVALUATION.md): the right links stayed under 0.85 heights, the wrong ones were above 1.0.
+BASE_RADIUS_HEIGHTS = 0.6
+RADIUS_PER_SECOND_HEIGHTS = 0.4
 # The speed used for the prediction is capped: a fast sprint is about 4 body heights per second.
 MAX_SPEED_HEIGHTS = 4.5
 # Speed of the last part of A (and the first of B), to predict where he goes.
