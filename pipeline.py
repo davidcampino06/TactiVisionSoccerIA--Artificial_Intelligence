@@ -41,6 +41,7 @@ from tactical_insights import MIN_SAMPLES, TacticalInsightGenerator
 from tactical_strengths import StrengthGenerator
 from team_assignment import TEAM_A, TEAM_B, UNASSIGNED, JerseyColorTeamClassifier, TeamAssignmentResult
 from track_crops import TrackCropCollector
+from track_stitching import stitching_payload
 from tracking import TrackedDetection, TrackerFactory
 
 logger = logging.getLogger("tactivision.pipeline")
@@ -283,6 +284,10 @@ class VideoAnalysisPipeline:
             "detections": self._detections_payload(records, team_result) if options.include_detections else [],
             "tracking": self._tracking_payload(records, team_result.track_teams, video_info),
             "track_snapshots": extraction_stats["crops"].payload(),
+            # Pairs of tracks that look like the same player cut in two; a person accepts or rejects them.
+            "track_links": stitching_payload(
+                ((record.frame_number, record.timestamp_seconds, record.tracked_players) for record in records),
+                team_result.track_teams, team_result.track_colors),
             "tactical_indicators": [indicator.to_dict() for indicator in indicators],
             "proximity_network": network_snapshot(context),
             "possible_issues": possible_issues,
