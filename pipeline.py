@@ -40,6 +40,7 @@ from issue_examples import attach_examples, attach_strength_examples
 from tactical_insights import MIN_SAMPLES, TacticalInsightGenerator
 from tactical_strengths import StrengthGenerator
 from team_assignment import TEAM_A, TEAM_B, UNASSIGNED, JerseyColorTeamClassifier, TeamAssignmentResult
+from role_suggestions import suggest_roles
 from track_crops import TrackCropCollector
 from track_stitching import stitching_payload
 from tracking import TrackedDetection, TrackerFactory
@@ -288,6 +289,8 @@ class VideoAnalysisPipeline:
             "track_links": stitching_payload(
                 ((record.frame_number, record.timestamp_seconds, record.tracked_players) for record in records),
                 team_result.track_teams, team_result.track_colors),
+            # Tracks whose shirt is of no team, grouped by kit: possible referee or goalkeeper.
+            "track_role_suggestions": suggest_roles(team_result, self._positions(records)),
             "tactical_indicators": [indicator.to_dict() for indicator in indicators],
             "proximity_network": network_snapshot(context),
             "possible_issues": possible_issues,
@@ -422,6 +425,16 @@ class VideoAnalysisPipeline:
                 ball = (ball_x / width, ball_y / height)
             snapshots.append(FrameSnapshot(record.frame_number, record.timestamp_seconds, players, ball))
         return snapshots
+
+    @staticmethod
+    def _positions(records: list[_FrameRecord]) -> dict[int, dict[int, tuple[float, float, float]]]:
+        """Foot point and box height of every track in every analysed frame, in pixels."""
+        positions: dict[int, dict[int, tuple[float, float, float]]] = defaultdict(dict)
+        for record in records:
+            for tracked in record.tracked_players:
+                foot_x, foot_y = tracked.detection.foot_point
+                positions[tracked.track_id][record.frame_number] = (foot_x, foot_y, tracked.detection.height)
+        return positions
 
     @staticmethod
     def _unique_tracks(records: list[_FrameRecord]) -> int:
