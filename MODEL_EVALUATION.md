@@ -74,6 +74,24 @@ otro en el último cuadro, o la cámara cambió de plano).
   decide una persona, y los enlaces son sugerencias que se aceptan o rechazan, nunca se unen solos.
 - Es una revisión a ojo de 36 pares en 2 clips, no un dataset etiquetado: sirve para saber que el
   orden de magnitud es razonable, no para dar un porcentaje de precisión con decimales.
+- Se probó comparar las camisetas con los pesos de color de los equipos (menos peso a la luz, L):
+  en Ataque.mp4 cambió 2 enlaces y uno que estaba bien (n.º 33 → n.º 33) pasó a otro jugador. No
+  mejoró, así que la comparación sigue en Lab sin pesos.
+
+### Cuántas personas quedan si se aceptan los enlaces
+
+`python evaluate_models.py --videos ... --models YOLO26n --frame-stride 3 --max-frames 300`
+(columna `identities_after_links` = trayectorias − enlaces sugeridos):
+
+| Clip | Cuadros | Jugadores por cuadro | Trayectorias | Personas tras los enlaces |
+|---|---|---|---|---|
+| Ataque.mp4 | 111 | 14.74 | 97 | 76 |
+| contra_ataque_y_mala_defensa.mp4 | 140 | 9.34 | 56 | 42 |
+| tiro_de_esquina_a_gol.mp4 | 88 | 12.56 | 45 | 37 |
+
+Sigue habiendo más IDs que personas en la cancha: los cortes por cambio de plano de la cámara o
+por más de 1.5 s fuera del cuadro no se unen (no hay forma de saber dónde reaparece el jugador), y
+esos los resuelve la persona con el dorsal.
 
 ## Sugerencias de árbitro y arquero (`role_suggestions.py`)
 
