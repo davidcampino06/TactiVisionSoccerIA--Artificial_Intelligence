@@ -64,6 +64,14 @@ Cada capa está separada y es explicable:
 | POST | `/api/analyze/simulation` | SIMULATION MODE (sin video). Parámetros `frames`, `seed` |
 | POST | `/api/video-quality` | Revisión del clip antes de analizar (`video_quality.py`): `video` + `fast_stride`, `fast_max_frames`, `full_stride`, `full_max_frames` |
 
+### Foto de cada trayectoria (`track_crops.py`)
+
+Mientras se decodifica el video, la IA guarda para cada trayectoria su mejor recorte: mayor
+confianza × altura de la caja, penalizando las cajas cortadas por el borde y las tapadas por otro
+jugador; nunca cajas de menos de 40 px. Se devuelven en `track_snapshots` (JPEG de hasta 160 px de
+alto en base64, ~2 KB cada uno). Sirven para que una persona reconozca al jugador y lo vincule a la
+plantilla: no hay reconocimiento facial ni biometría.
+
 ### Revisión del clip (`/api/video-quality`)
 
 El análisis toma los cuadros **desde el inicio** hasta su tope (`max_frames`): con un clip más largo,
