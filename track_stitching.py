@@ -23,6 +23,7 @@ or rejects them. A wrong merge would mix two players' trajectories, which is wor
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -185,10 +186,15 @@ def stitch_tracks(summaries: dict[int, TrackSummary], track_teams: dict[int, str
     """The chosen links, surest first, each track used at most once as an end and once as a start."""
     track_teams = track_teams or {}
     track_colors = track_colors or {}
-    by_end = sorted(summaries.values(), key=lambda s: s.last_time)
+    # Only tracks that start within MAX_GAP_SECONDS after A ends can continue it: with the starts
+    # sorted, each A looks at that window alone instead of every track (a long video in full mode has
+    # thousands of tracks, and comparing all pairs took seconds).
+    by_start = sorted(summaries.values(), key=lambda s: s.first_time)
+    starts = [s.first_time for s in by_start]
     candidates = []
-    for a in by_end:
-        for b in summaries.values():
+    for a in summaries.values():
+        window = by_start[bisect_right(starts, a.last_time):bisect_right(starts, a.last_time + MAX_GAP_SECONDS)]
+        for b in window:
             if b.track_id == a.track_id:
                 continue
             link = score_link(a, b, track_teams.get(a.track_id), track_teams.get(b.track_id),
