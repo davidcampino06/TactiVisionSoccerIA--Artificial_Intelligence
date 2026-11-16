@@ -99,6 +99,8 @@ class AnalysisResponse(BaseModel):
     detection_stability: dict[str, float]
     detections: list[dict[str, Any]]
     tracking: list[dict[str, Any]]
+    # Best crop of each track (track_crops.py), so the staff can recognise who is who: JPEG in base64.
+    track_snapshots: list[dict[str, Any]] = []
     tactical_indicators: list[TacticalIndicatorOut]
     # Graph of supports between team-mates in the busiest frame (proximity_graph.py), with BFS hops.
     proximity_network: dict[str, Any] | None = None
