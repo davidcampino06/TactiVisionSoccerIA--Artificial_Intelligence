@@ -230,6 +230,8 @@ def test_the_pipeline_suggests_joining_a_player_the_tracker_lost(tmp_path):
     assert before["last_frame"] == link["from_last_frame"] < link["to_first_frame"] == after["first_frame"]
     assert 1.0 < link["gap_seconds"] <= MAX_GAP_SECONDS and link["confidence"] >= 0.5
     assert result["track_links"]["groups"] == [[link["from_track"], link["to_track"]]]
+    # What this step costs is measured apart, inside the total time of the analysis.
+    assert 0 <= result["performance"]["identification_ms"] <= result["performance"]["processing_seconds"] * 1000
 
 
 def test_the_model_evaluation_counts_the_people_after_the_links(tmp_path):
