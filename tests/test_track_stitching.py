@@ -134,11 +134,9 @@ def test_a_track_seen_once_is_never_linked():
     assert stitch_tracks(summarize_tracks(frames(a, b))) == []
 
 
-def test_the_pipeline_suggests_joining_a_player_the_tracker_lost(tmp_path):
-    """A red player walks, is hidden for 1.3 s (the tracker forgets him) and comes back: two ids, one link."""
+def hidden_player_video(tmp_path):
+    """A red player walks, is hidden for 1.3 s (the tracker forgets him) and comes back; a blue one stands."""
     import cv2
-
-    from pipeline import AnalysisOptions, VideoAnalysisPipeline
 
     path = tmp_path / "hidden.mp4"
     writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), FPS, (640, 360))
@@ -148,23 +146,32 @@ def test_the_pipeline_suggests_joining_a_player_the_tracker_lost(tmp_path):
         x = 100 + index * 2
         if index not in hidden:
             cv2.rectangle(image, (x, 120), (x + 40, 210), (0, 0, 230), -1)
-        cv2.rectangle(image, (520, 120), (560, 210), (230, 60, 0), -1)  # a blue player standing still
+        cv2.rectangle(image, (520, 120), (560, 210), (230, 60, 0), -1)
         writer.write(image)
     writer.release()
+    return path
 
-    class Detector:
-        model_name, model_version, runtime, last_inference_ms = "fake", "0", "cpu", 0.0
 
-        def detect(self, image, confidence):
-            found = []
-            for color in ((0, 0, 230), (230, 60, 0)):
-                ys, xs = np.nonzero(cv2.inRange(image, np.array(color) - 25, np.array(color) + 25))
-                if len(xs) > 100:
-                    found.append(Detection(xs.min(), ys.min(), xs.max() + 1, ys.max() + 1, 0.85, 0, OBJECT_TYPE_PLAYER))
-            return found
+class ColorDetector:
+    """Finds the red and the blue player by their colour, as a model would find them."""
+    model_name, model_version, runtime, last_inference_ms = "fake", "0", "cpu", 0.0
 
-    result = VideoAnalysisPipeline(Detector()).analyze_video(
-        path, AnalysisOptions(frame_stride=1, max_frames=100, pitch_filter=False))
+    def detect(self, image, confidence):
+        import cv2
+
+        found = []
+        for color in ((0, 0, 230), (230, 60, 0)):
+            ys, xs = np.nonzero(cv2.inRange(image, np.array(color) - 25, np.array(color) + 25))
+            if len(xs) > 100:
+                found.append(Detection(xs.min(), ys.min(), xs.max() + 1, ys.max() + 1, 0.85, 0, OBJECT_TYPE_PLAYER))
+        return found
+
+
+def test_the_pipeline_suggests_joining_a_player_the_tracker_lost(tmp_path):
+    from pipeline import AnalysisOptions, VideoAnalysisPipeline
+
+    result = VideoAnalysisPipeline(ColorDetector()).analyze_video(
+        hidden_player_video(tmp_path), AnalysisOptions(frame_stride=1, max_frames=100, pitch_filter=False))
     tracks = {t["track_id"]: t for t in result["tracking"]}
     assert len(tracks) == 3  # the red player got two ids, the blue one kept his
     (link,) = result["track_links"]["links"]
@@ -172,3 +179,13 @@ def test_the_pipeline_suggests_joining_a_player_the_tracker_lost(tmp_path):
     assert before["last_frame"] == link["from_last_frame"] < link["to_first_frame"] == after["first_frame"]
     assert 1.0 < link["gap_seconds"] <= MAX_GAP_SECONDS and link["confidence"] >= 0.5
     assert result["track_links"]["groups"] == [[link["from_track"], link["to_track"]]]
+
+
+def test_the_model_evaluation_counts_the_people_after_the_links(tmp_path):
+    from evaluate_models import evaluate_on_video, to_markdown
+
+    row = evaluate_on_video(ColorDetector(), hidden_player_video(tmp_path), frame_stride=1, max_frames=100)
+    assert (row["unique_tracks"], row["identities_after_links"]) == (3, 2)
+    header, _, line = to_markdown([{"model": "fake", **row}]).splitlines()
+    position = header.split(" | ").index("identities_after_links")
+    assert line.split(" | ")[position] == "2"
