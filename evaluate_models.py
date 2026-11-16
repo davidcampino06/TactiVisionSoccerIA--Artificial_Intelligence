@@ -46,6 +46,8 @@ def evaluate_on_video(detector: ObjectDetector, video_path: Path, frame_stride: 
         "ball_detection_rate": result["ball_detection_rate"],
         "mean_ball_confidence": round(float(np.mean(ball_confidences)), 4) if ball_confidences else None,
         "unique_tracks": result["unique_player_tracks"],
+        # Tracks minus the suggested links: how many people there would be if every link were right.
+        "identities_after_links": len(result["tracking"]) - len(result["track_links"]["links"]),
         **{f"tracking_{key}": value for key, value in result["detection_stability"].items()},
     }
 
@@ -70,7 +72,7 @@ def to_markdown(rows: list[dict]) -> str:
     """Formats the evaluation rows as a Markdown table (missing values as n/a)."""
     columns = [
         "model", "runtime", "video", "frames", "mean_inference_ms", "processed_fps", "avg_players_per_frame",
-        "mean_player_confidence", "ball_detection_rate", "unique_tracks",
+        "mean_player_confidence", "ball_detection_rate", "unique_tracks", "identities_after_links",
         "tracking_track_fragmentation_ratio", "tracking_mean_track_length_frames",
         "precision", "recall", "mAP50", "mAP50_95",
     ]
