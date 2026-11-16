@@ -38,7 +38,20 @@ Video → extracción de frames (cada FRAME_STRIDE) → YOLO (person / sports ba
       → equipos por color de camiseta (k-means) → posiciones normalizadas
       → indicadores tácticos (Strategy) → reglas de posibles problemas
       → evidencia + confianza → recomendaciones
+
+Para identificar a cada persona (sin biometría, lo confirma el cuerpo técnico):
+ByteTrack → foto de cada trayectoria (track_snapshots)
+          → trayectorias cortadas del mismo jugador (track_links)
+          → camisetas de ningún equipo: árbitro o arquero (track_role_suggestions)
 ```
+
+Herramientas de revisión (en `tools/`, corren el análisis completo sobre un clip real):
+
+| Herramienta | Qué produce |
+|---|---|
+| `landing_detections.py` | Las cajas reales de un clip para el video de la portada |
+| `review_track_links.py` | Hoja con cada enlace sugerido: el jugador al final de un ID y al inicio del otro |
+| `review_roles.py` | Hoja con las fotos de cada grupo de camiseta sugerido como árbitro o arquero |
 
 Cada capa está separada y es explicable:
 
