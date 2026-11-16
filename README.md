@@ -48,6 +48,7 @@ Cada capa está separada y es explicable:
 | Tracking | `tracking.py` | ByteTrack → `track_id` temporal (sin biometría) |
 | Equipos | `team_assignment.py` | Clustering de color de camiseta → TEAM_A / TEAM_B / UNASSIGNED |
 | Trayectorias cortadas | `track_stitching.py` | Sugiere qué IDs son el mismo jugador cortado por una oclusión |
+| Árbitros y arqueros | `role_suggestions.py` | Agrupa por camiseta a quien no es de ningún equipo y sugiere su rol |
 | Tactical Metrics | `tactical_analysis.py` | Indicadores (patrón Strategy) |
 | Red de cercanía | `proximity_graph.py` | Grafo de apoyos entre compañeros recorrido con BFS (ver abajo) |
 | Issues + Recommendations | `tactical_insights.py` | Reglas con umbral, persistencia, evidencia y confianza |
@@ -97,6 +98,26 @@ como inicio; las cadenas (12 → 31 → 40) salen en `groups`. **No se une nada 
 acepta o rechaza, porque mezclar a dos jugadores es peor que un corte. Medición en clips reales en
 `MODEL_EVALUATION.md`; para revisar un clip:
 `python tools/review_track_links.py clip.mp4 enlaces.jpg`.
+
+### Árbitros y arqueros (`role_suggestions.py`)
+
+Quien lleva una camiseta lejos de los dos equipos queda `UNASSIGNED`. Esas trayectorias se agrupan
+por color de camiseta (`kit_group`) y el grupo dice qué pueden ser, en `track_role_suggestions`:
+
+- dos o más personas con esa camiseta **a la vez** (en 3 cuadros analizados o más, a más de una
+  altura de caja entre sí): un equipo juega con un solo arquero, así que es el cuerpo arbitral →
+  `REFEREE`;
+- nunca dos a la vez → `GOALKEEPER_OR_REFEREE`: el color no distingue al arquero del árbitro.
+
+```json
+{"track_id": 66, "suggestion": "GOALKEEPER_OR_REFEREE", "kit_group": 2, "kit_color": "#3bb3c2",
+ "kit_tracks": 4, "confidence": 0.5,
+ "reason": "Camiseta #3bb3c2, que no es de ningún equipo, y nunca hay dos personas con ella a la vez: puede ser un arquero o el árbitro."}
+```
+
+Solo cuentan trayectorias con 3 muestras de camiseta o más, y un "color de camiseta" verde césped
+se descarta (es el pasto visto por una caja pequeña). Es una sugerencia: el rol lo confirma una
+persona en la app. Revisión: `python tools/review_roles.py clip.mp4 roles.jpg`.
 
 ### Revisión del clip (`/api/video-quality`)
 
