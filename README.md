@@ -47,6 +47,7 @@ Cada capa está separada y es explicable:
 | Visual Detection | `detectors.py` | YOLO26n / YOLO11n (ONNX) o Ultralytics (.pt). Factory Method |
 | Tracking | `tracking.py` | ByteTrack → `track_id` temporal (sin biometría) |
 | Equipos | `team_assignment.py` | Clustering de color de camiseta → TEAM_A / TEAM_B / UNASSIGNED |
+| Trayectorias cortadas | `track_stitching.py` | Sugiere qué IDs son el mismo jugador cortado por una oclusión |
 | Tactical Metrics | `tactical_analysis.py` | Indicadores (patrón Strategy) |
 | Red de cercanía | `proximity_graph.py` | Grafo de apoyos entre compañeros recorrido con BFS (ver abajo) |
 | Issues + Recommendations | `tactical_insights.py` | Reglas con umbral, persistencia, evidencia y confianza |
@@ -71,6 +72,31 @@ confianza × altura de la caja, penalizando las cajas cortadas por el borde y la
 jugador; nunca cajas de menos de 40 px. Se devuelven en `track_snapshots` (JPEG de hasta 160 px de
 alto en base64, ~2 KB cada uno). Sirven para que una persona reconozca al jugador y lo vincule a la
 plantilla: no hay reconocimiento facial ni biometría.
+
+### Trayectorias cortadas (`track_stitching.py`)
+
+Cuando un jugador queda tapado o sale un momento del cuadro, ByteTrack lo pierde y al volver le da
+otro ID: el video muestra "ID 12" y un segundo después, casi en el mismo sitio, "ID 31". La IA
+sugiere esos pares en `track_links`:
+
+```json
+"track_links": {
+  "links": [{"from_track": 12, "to_track": 31, "from_last_frame": 51, "to_first_frame": 60,
+             "gap_seconds": 0.3, "distance_heights": 0.12, "color_distance": 4.28,
+             "same_team": true, "confidence": 0.9}],
+  "groups": [[12, 31]]
+}
+```
+
+Un enlace A → B se sugiere solo si todo coincide: B empieza después de que A termina (nunca están
+los dos en pantalla) y antes de 1.5 s; B aparece donde estaría A si siguiera a su última velocidad
+(error medido en alturas de la caja, con un radio de 0.6 + 0.4 alturas por segundo de hueco); las
+cajas tienen tamaño parecido; el equipo no es distinto y el color de camiseta (Lab) está a menos
+de 28. Los pares se eligen de mayor a menor confianza y cada ID se usa una vez como final y una
+como inicio; las cadenas (12 → 31 → 40) salen en `groups`. **No se une nada solo**: una persona
+acepta o rechaza, porque mezclar a dos jugadores es peor que un corte. Medición en clips reales en
+`MODEL_EVALUATION.md`; para revisar un clip:
+`python tools/review_track_links.py clip.mp4 enlaces.jpg`.
 
 ### Revisión del clip (`/api/video-quality`)
 
