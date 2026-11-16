@@ -60,6 +60,13 @@ class TeamAssignmentResult:
     detection_teams: dict[Hashable, str] = field(default_factory=dict)
     # Which detected team wears the kit colour the user gave (None when not given or not clear).
     own_team: str | None = None
+    # Median shirt colour of every track (Lab, OpenCV 8-bit scale), used to link cut tracks and to
+    # suggest referees, and how far it is from the nearest team colour in units of the typical spread
+    # of a team (1 = as close as a usual player of that team; above OUTLIER_DISTANCE_FACTOR = neither).
+    track_colors: dict[int, np.ndarray] = field(default_factory=dict)
+    track_color_distance: dict[int, float] = field(default_factory=dict)
+    # How many frames each colour comes from (a colour seen in 2 frames says little).
+    track_samples: dict[int, int] = field(default_factory=dict)
 
 
 def hex_to_lab(hex_color: str) -> np.ndarray:
@@ -144,6 +151,8 @@ class JerseyColorTeamClassifier:
         track_ids = [track_id for track_id, samples in self._samples.items() if samples]
         if len(track_ids) < MIN_TRACKS_FOR_CLUSTERING:
             return TeamAssignmentResult(
+                track_colors={t: np.median(self._samples[t], axis=0) for t in track_ids},
+                track_samples={t: len(self._samples[t]) for t in track_ids},
                 track_teams={track_id: UNASSIGNED for track_id in track_ids},
                 team_colors_hex={},
                 detection_teams={key: UNASSIGNED for key in self._loose},
@@ -231,6 +240,10 @@ class JerseyColorTeamClassifier:
                 )
 
         return TeamAssignmentResult(
+            track_colors={track_id: colors[index] for index, track_id in enumerate(track_ids)},
+            track_samples={track_id: len(self._samples[track_id]) for track_id in track_ids},
+            track_color_distance={track_id: round(float(distance) / typical_distance, 3)
+                                  for track_id, distance in zip(track_ids, distances)},
             track_teams=track_teams,
             team_colors_hex={cluster_to_team[c]: _lab_to_hex(lab_centers[c]) for c in (0, 1)},
             separation_score=separation_score,
