@@ -239,8 +239,10 @@ def analyze_video(
     try:
         with detector_provider.analysis_lock:
             result = VideoAnalysisPipeline(detector).analyze_video(video_path, options)
-        logger.info("Analysis finished: %s frames in %s s, %s possible issues", result["frames_processed"],
-                    result["performance"]["processing_seconds"], len(result["possible_issues"]))
+        logger.info("Analysis finished: %s frames in %s s, %s possible issues, %s tracks, %s suggested links, "
+                    "%s role suggestions", result["frames_processed"], result["performance"]["processing_seconds"],
+                    len(result["possible_issues"]), len(result["tracking"]), len(result["track_links"]["links"]),
+                    len(result["track_role_suggestions"]))
         return result
     except VideoProcessingError as error:
         logger.warning("Analysis failed: %s", error)
