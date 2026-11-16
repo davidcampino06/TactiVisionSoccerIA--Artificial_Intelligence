@@ -90,6 +90,10 @@ def run_simulation(frames: int = 120, seed: int = 7) -> dict:
             }
             for track_id, points in tracking.items()
         ],
+        # Synthetic tracks are never cut and nobody wears a third kit: there is nothing to suggest,
+        # and a suggestion here would look like something found in a video.
+        "track_links": {"links": [], "groups": []},
+        "track_role_suggestions": [],
         "tactical_indicators": [indicator.to_dict() for indicator in indicators],
         "proximity_network": network_snapshot(context),
         "possible_issues": possible_issues,
