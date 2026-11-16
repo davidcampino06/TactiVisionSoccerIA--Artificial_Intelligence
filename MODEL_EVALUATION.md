@@ -74,3 +74,29 @@ otro en el último cuadro, o la cámara cambió de plano).
   decide una persona, y los enlaces son sugerencias que se aceptan o rechazan, nunca se unen solos.
 - Es una revisión a ojo de 36 pares en 2 clips, no un dataset etiquetado: sirve para saber que el
   orden de magnitud es razonable, no para dar un porcentaje de precisión con decimales.
+
+## Sugerencias de árbitro y arquero (`role_suggestions.py`)
+
+Revisión a ojo con `tools/review_roles.py` (foto de cada trayectoria agrupada por camiseta), mismos
+ajustes que arriba:
+
+| Clip | Trayectorias sugeridas | Grupos de camiseta | Bien agrupadas y son árbitro o arquero | Otra persona |
+|---|---|---|---|---|
+| Ataque.mp4 | 11 | 3 | 10 (6 del arquero naranja, 4 del árbitro) | 1 (alguien del banquillo junto a la línea) |
+| contra_ataque_y_mala_defensa.mp4 | 5 | 2 | 5 (4 del árbitro, 1 del arquero) | 0 |
+| tiro_de_esquina_a_gol.mp4 | 2 | 1 | 2 (el árbitro) | 0 |
+
+### Lectura
+
+- La utilidad real es el grupo: el arquero de Ataque.mp4 quedó partido en 6 IDs y el árbitro en 4;
+  al confirmar uno, la persona ya sabe quiénes son los demás de la misma camiseta.
+- En los tres clips todas salieron como "arquero o árbitro": nunca hubo dos personas con la misma
+  camiseta a la vez (el juez de línea no sale en plano). La sugerencia "cuerpo arbitral" solo aparece
+  con dos a la vez durante 3 cuadros analizados o más; está probada con video sintético, no con uno
+  real.
+- Primer intento sin filtros: el arquero salía como "cuerpo arbitral" porque ByteTrack abrió una
+  segunda caja sobre él durante 3 cuadros, y un jugador blanco con una caja pequeña dio una
+  "camiseta" verde oscuro (era el césped). Por eso dos cajas a menos de una altura cuentan como una
+  persona y un color de camiseta verde césped no se tiene en cuenta.
+- Una persona fuera del juego (banquillo) también tiene una camiseta que no es de ningún equipo; la
+  sugerencia no la distingue: por eso lo confirma una persona (rol "Otro" en la app).
