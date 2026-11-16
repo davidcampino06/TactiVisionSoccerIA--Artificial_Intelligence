@@ -44,3 +44,33 @@ Configuración inicial confirmada: **YOLO26n + ByteTrack** (se cambia con `MODEL
 3. Para precision/recall/mAP: etiquetar ~100 frames (clases `person`, `sports ball`) en formato
    YOLO, crear `soccer.yaml` y ejecutar con `--dataset soccer.yaml` (requiere `requirements-eval.txt`).
 4. Copiar aquí la tabla Markdown que imprime el script.
+
+## Unión de trayectorias cortadas (`track_stitching.py`)
+
+ByteTrack le da un ID nuevo a un jugador que estuvo tapado o fuera de cuadro más de lo que su
+memoria aguanta. El módulo sugiere qué pares de IDs son el mismo jugador; aquí se midió cuántas de
+esas sugerencias son correctas, mirando cada par con `tools/review_track_links.py` (el jugador en el
+último cuadro del ID que termina y en el primero del ID que empieza, recortados del video).
+
+Clips de transmisión, YOLO26n ONNX en CPU, `frame_stride=3`, `max_frames=300`:
+
+| Clip | IDs (tracks) | Enlaces sugeridos | Correctos a la vista | Dudosos | Errores claros | IDs si se aceptan todos |
+|---|---|---|---|---|---|---|
+| Ataque.mp4 (se usó para ajustar) | 98 | 22 | 20 | 2 | 0 | 76 |
+| contra_ataque_y_mala_defensa.mp4 (no usado para ajustar) | 56 | 14 | 12 | 2 | 0 | 42 |
+
+"Dudoso" = el recorte no deja ver con certeza si es el mismo jugador (el jugador está tapado por
+otro en el último cuadro, o la cámara cambió de plano).
+
+### Lectura
+
+- Con el primer radio (0.75 + 2.0 alturas por segundo de hueco) Ataque.mp4 daba 29 enlaces y 4 eran
+  errores claros (por ejemplo el n.º 5 enlazado con el n.º 33 del mismo equipo, 1.5 alturas de
+  distancia). Todos los enlaces correctos quedaban a menos de 0.85 alturas del punto previsto y los
+  errores por encima de 1.0, así que el radio quedó en 0.6 + 0.4 alturas por segundo.
+- Ese ajuste también quitó 3 enlaces correctos (2 del arquero, que corre en diagonal y cambia de
+  dirección): se prefiere perder un enlace a mezclar a dos jugadores.
+- El color de la camiseta no distingue a dos compañeros del mismo equipo; por eso el dorsal lo
+  decide una persona, y los enlaces son sugerencias que se aceptan o rechazan, nunca se unen solos.
+- Es una revisión a ojo de 36 pares en 2 clips, no un dataset etiquetado: sirve para saber que el
+  orden de magnitud es razonable, no para dar un porcentaje de precisión con decimales.
