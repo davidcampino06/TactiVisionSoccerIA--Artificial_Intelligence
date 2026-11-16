@@ -136,3 +136,19 @@ def test_a_lone_keeper_does_not_become_a_team():
     teams = classifier.assign().track_teams
     assert teams[1] == teams[4] != teams[5] == teams[8]
     assert teams[9] != teams[1]
+
+
+# ---------------------------------------------------------------- colour of every track (stitching, referees)
+def test_every_track_keeps_its_colour_and_how_far_it_is_from_the_teams():
+    teams = [(1, RED), (2, RED), (3, RED), (4, RED), (5, BLUE), (6, BLUE), (7, BLUE), (8, BLUE), (9, YELLOW)]
+    frame, detections = painted(teams)
+    classifier = JerseyColorTeamClassifier()
+    for _ in range(3):
+        classifier.collect(frame, [TrackedDetection(track_id, d) for (track_id, _), d in zip(teams, detections)])
+
+    result = classifier.assign()
+    assert set(result.track_colors) == set(range(1, 10)) and result.track_samples[9] == 3
+    assert np.linalg.norm(result.track_colors[1] - result.track_colors[2]) < 1.0  # same kit, same colour
+    assert np.linalg.norm(result.track_colors[1] - result.track_colors[5]) > 30.0
+    assert result.track_teams[9] == UNASSIGNED
+    assert result.track_color_distance[9] > 2.5 > result.track_color_distance[1]
