@@ -40,6 +40,7 @@ from issue_examples import attach_examples, attach_strength_examples
 from tactical_insights import MIN_SAMPLES, TacticalInsightGenerator
 from tactical_strengths import StrengthGenerator
 from team_assignment import TEAM_A, TEAM_B, UNASSIGNED, JerseyColorTeamClassifier, TeamAssignmentResult
+from track_crops import TrackCropCollector
 from tracking import TrackedDetection, TrackerFactory
 
 logger = logging.getLogger("tactivision.pipeline")
@@ -281,6 +282,7 @@ class VideoAnalysisPipeline:
             "detection_stability": self._stability(records),
             "detections": self._detections_payload(records, team_result) if options.include_detections else [],
             "tracking": self._tracking_payload(records, team_result.track_teams, video_info),
+            "track_snapshots": extraction_stats["crops"].payload(),
             "tactical_indicators": [indicator.to_dict() for indicator in indicators],
             "proximity_network": network_snapshot(context),
             "possible_issues": possible_issues,
@@ -312,6 +314,7 @@ class VideoAnalysisPipeline:
         stride = max(1, options.frame_stride)
         tracker = TrackerFactory.create(self._tracker_name, frame_rate=video_info["fps"] / stride)
         team_classifier = JerseyColorTeamClassifier()
+        crops = TrackCropCollector()
         records: list[_FrameRecord] = []
         inference_ms: list[float] = []
         frames_without_pitch = 0
@@ -362,6 +365,7 @@ class VideoAnalysisPipeline:
 
             tracked_players = tracker.update(players)
             team_classifier.collect(frame, tracked_players)
+            crops.collect(frame, tracked_players, frame_number, frame_number / video_info["fps"])
             tracked_boxes = {id(tracked.detection) for tracked in tracked_players}
             untracked = [d for d in players if id(d) not in tracked_boxes]
             for index, detection in enumerate(untracked):
@@ -384,6 +388,7 @@ class VideoAnalysisPipeline:
         return records, {
             "pitch_visible": bool(records) and frames_without_pitch <= len(records) / 2,
             "team_classifier": team_classifier,
+            "crops": crops,
             "inference_ms": inference_ms or [0.0],
             "warnings": warnings,
         }
