@@ -97,6 +97,18 @@ class TrackLinksOut(BaseModel):
     groups: list[list[int]] = []
 
 
+class TrackRoleSuggestionOut(BaseModel):
+    """A track whose shirt is of no team (role_suggestions.py); the staff confirms the role."""
+    track_id: int
+    suggestion: Literal["REFEREE", "GOALKEEPER_OR_REFEREE"]
+    # Tracks with the same kit share the group: labelling one tells who the others are.
+    kit_group: int = Field(ge=1)
+    kit_color: str = Field(pattern=r"^#[0-9a-f]{6}$")
+    kit_tracks: int = Field(ge=1)
+    confidence: float = Field(ge=0, le=1)
+    reason: str
+
+
 class AnalysisResponse(BaseModel):
     """Body of POST /api/analyze and /api/analyze/simulation."""
     status: Literal["COMPLETED"]
@@ -122,6 +134,7 @@ class AnalysisResponse(BaseModel):
     # Best crop of each track (track_crops.py), so the staff can recognise who is who: JPEG in base64.
     track_snapshots: list[dict[str, Any]] = []
     track_links: TrackLinksOut = TrackLinksOut()
+    track_role_suggestions: list[TrackRoleSuggestionOut] = []
     tactical_indicators: list[TacticalIndicatorOut]
     # Graph of supports between team-mates in the busiest frame (proximity_graph.py), with BFS hops.
     proximity_network: dict[str, Any] | None = None
