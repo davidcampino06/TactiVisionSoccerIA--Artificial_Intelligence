@@ -72,6 +72,9 @@ def test_analyze_real_pipeline_on_synthetic_video(synthetic_pitch_video):
     assert body["mode"] == "REAL_VIDEO_ANALYSIS"
     assert body["frames_processed"] == 10
     assert body["pitch_visible"] is True
+    # The suggestions travel with every real analysis, even when there is nothing to suggest.
+    assert set(body["track_links"]) == {"links", "groups"}
+    assert isinstance(body["track_role_suggestions"], list)
 
 
 def test_analyze_detects_people_in_real_photo_video(people_video):
@@ -99,6 +102,7 @@ def test_analyze_detects_people_in_real_photo_video(people_video):
 def test_simulation_is_clearly_labelled():
     with TestClient(app) as client:
         body = client.post("/api/analyze/simulation", headers=API_HEADERS, data={"frames": "60"}).json()
+    assert body["track_links"] == {"links": [], "groups": []} and body["track_role_suggestions"] == []
     assert body["mode"] == "SIMULATION_MODE"
     assert body["model"] == "SIMULATION"
     assert any("MODO SIMULACIÓN" in warning for warning in body["warnings"])
