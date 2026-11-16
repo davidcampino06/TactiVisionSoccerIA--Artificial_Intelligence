@@ -128,6 +128,20 @@ def test_groups_from_links_without_tracks_on_both_ends():
     assert link_groups([]) == []
 
 
+def test_a_wild_speed_from_a_jumpy_box_is_capped_before_predicting():
+    """A box that jumped in its last frames gives 5000 px/s: no player runs that fast (cap 4.5 heights/s)."""
+    from track_stitching import MAX_SPEED_HEIGHTS, TrackSummary
+
+    end = np.array([500.0, 300.0])
+    jumpy = TrackSummary(1, 0, 50, 0.0, 2.0, np.array([300.0, 300.0]), end, np.zeros(2),
+                         np.array([5000.0, 0.0]), 80.0, 20)
+    back = TrackSummary(2, 55, 90, 2.2, 3.6, end + (10.0, 0.0), end + (60.0, 0.0), np.zeros(2), np.zeros(2), 80.0, 15)
+    link = score_link(jumpy, back)
+    assert link is not None
+    # Forward 0.1 s at the capped speed (4.5 x 80 px/s = 36 px), not 500 px.
+    assert abs(link.distance_heights - (MAX_SPEED_HEIGHTS * 80.0 * 0.1 - 10.0) / 80.0) < 1e-9
+
+
 def test_a_track_seen_once_is_never_linked():
     a = run(1, 0, 0, (100, 300), (0.0, 0.0))
     b = run(2, 5, 30, (102, 300), (0.0, 0.0))
