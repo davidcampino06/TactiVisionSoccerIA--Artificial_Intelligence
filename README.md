@@ -316,6 +316,13 @@ contra la ejecución `.pt` en PyTorch (ver `MODEL_EVALUATION.md`). Para RT-DETR 
   probaron con otros 3 de eFootball que la IA no había visto (ver [CALIBRATION.md](CALIBRATION.md)):
   en partidos reales, cuando avisa acierta el 80 %; en el videojuego la IA ve los equipos más
   abiertos de lo que los juzga una persona. Es una calibración orientativa, no una precisión garantizada.
+- Trayectorias cortadas: solo se unen cortes de hasta 1.5 s en los que el jugador reaparece cerca
+  de donde iba. Un cambio de plano de la cámara o una salida larga del cuadro dejan IDs sin unir, y
+  dos compañeros del mismo equipo cerca uno del otro pueden confundirse (el color no los distingue):
+  los enlaces son sugerencias que una persona acepta o rechaza (medición en MODEL_EVALUATION.md).
+- Árbitros y arqueros: el color no distingue al arquero del árbitro cuando solo uno está en plano,
+  una persona del banquillo junto a la línea también tiene una camiseta "de ningún equipo", y una
+  camiseta verde no se puede medir (el verde se toma como césped).
 
 ## Render
 
