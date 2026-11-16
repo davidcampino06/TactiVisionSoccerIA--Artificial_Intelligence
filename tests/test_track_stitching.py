@@ -132,3 +132,43 @@ def test_a_track_seen_once_is_never_linked():
     a = run(1, 0, 0, (100, 300), (0.0, 0.0))
     b = run(2, 5, 30, (102, 300), (0.0, 0.0))
     assert stitch_tracks(summarize_tracks(frames(a, b))) == []
+
+
+def test_the_pipeline_suggests_joining_a_player_the_tracker_lost(tmp_path):
+    """A red player walks, is hidden for 1.3 s (the tracker forgets him) and comes back: two ids, one link."""
+    import cv2
+
+    from pipeline import AnalysisOptions, VideoAnalysisPipeline
+
+    path = tmp_path / "hidden.mp4"
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), FPS, (640, 360))
+    hidden = range(30, 63)
+    for index in range(100):
+        image = np.full((360, 640, 3), (40, 140, 40), dtype=np.uint8)
+        x = 100 + index * 2
+        if index not in hidden:
+            cv2.rectangle(image, (x, 120), (x + 40, 210), (0, 0, 230), -1)
+        cv2.rectangle(image, (520, 120), (560, 210), (230, 60, 0), -1)  # a blue player standing still
+        writer.write(image)
+    writer.release()
+
+    class Detector:
+        model_name, model_version, runtime, last_inference_ms = "fake", "0", "cpu", 0.0
+
+        def detect(self, image, confidence):
+            found = []
+            for color in ((0, 0, 230), (230, 60, 0)):
+                ys, xs = np.nonzero(cv2.inRange(image, np.array(color) - 25, np.array(color) + 25))
+                if len(xs) > 100:
+                    found.append(Detection(xs.min(), ys.min(), xs.max() + 1, ys.max() + 1, 0.85, 0, OBJECT_TYPE_PLAYER))
+            return found
+
+    result = VideoAnalysisPipeline(Detector()).analyze_video(
+        path, AnalysisOptions(frame_stride=1, max_frames=100, pitch_filter=False))
+    tracks = {t["track_id"]: t for t in result["tracking"]}
+    assert len(tracks) == 3  # the red player got two ids, the blue one kept his
+    (link,) = result["track_links"]["links"]
+    before, after = tracks[link["from_track"]], tracks[link["to_track"]]
+    assert before["last_frame"] == link["from_last_frame"] < link["to_first_frame"] == after["first_frame"]
+    assert 1.0 < link["gap_seconds"] <= MAX_GAP_SECONDS and link["confidence"] >= 0.5
+    assert result["track_links"]["groups"] == [[link["from_track"], link["to_track"]]]
