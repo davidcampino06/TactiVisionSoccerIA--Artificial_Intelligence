@@ -238,6 +238,14 @@ class VideoAnalysisPipeline:
                 "no parece mostrar una cancha de fútbol."
             )
 
+        # Who is who: cut tracks of the same player and kits of no team (suggestions for the staff).
+        identification_started = time.perf_counter()
+        track_links = stitching_payload(
+            ((record.frame_number, record.timestamp_seconds, record.tracked_players) for record in records),
+            team_result.track_teams, team_result.track_colors)
+        role_suggestions = suggest_roles(team_result, self._positions(records))
+        identification_ms = (time.perf_counter() - identification_started) * 1000
+
         processing_seconds = time.perf_counter() - started
         frames_processed = len(records)
         player_counts = [record.player_count() for record in records]
@@ -280,17 +288,16 @@ class VideoAnalysisPipeline:
                 "processing_seconds": round(processing_seconds, 2),
                 "mean_inference_ms": round(float(np.mean(extraction_stats["inference_ms"])), 2),
                 "processed_fps": round(frames_processed / processing_seconds, 2) if processing_seconds else 0.0,
+                "identification_ms": round(identification_ms, 2),
             },
             "detection_stability": self._stability(records),
             "detections": self._detections_payload(records, team_result) if options.include_detections else [],
             "tracking": self._tracking_payload(records, team_result.track_teams, video_info),
             "track_snapshots": extraction_stats["crops"].payload(),
             # Pairs of tracks that look like the same player cut in two; a person accepts or rejects them.
-            "track_links": stitching_payload(
-                ((record.frame_number, record.timestamp_seconds, record.tracked_players) for record in records),
-                team_result.track_teams, team_result.track_colors),
+            "track_links": track_links,
             # Tracks whose shirt is of no team, grouped by kit: possible referee or goalkeeper.
-            "track_role_suggestions": suggest_roles(team_result, self._positions(records)),
+            "track_role_suggestions": role_suggestions,
             "tactical_indicators": [indicator.to_dict() for indicator in indicators],
             "proximity_network": network_snapshot(context),
             "possible_issues": possible_issues,
