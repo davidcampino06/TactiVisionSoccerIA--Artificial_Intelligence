@@ -77,6 +77,26 @@ class StrengthOut(BaseModel):
     # seen / meaning / keep, and one real frame that shows it (players, ball and an overlay).
     explanation: dict[str, Any] | None = None
 
+class TrackLinkOut(BaseModel):
+    """Track ``to_track`` looks like ``from_track`` cut in two (track_stitching.py); a suggestion only."""
+    from_track: int
+    to_track: int
+    from_last_frame: int
+    to_first_frame: int
+    gap_seconds: float = Field(gt=0)
+    # Distance between where the player should be and where the new track starts, in box heights.
+    distance_heights: float = Field(ge=0)
+    color_distance: float | None = None
+    same_team: bool | None = None
+    confidence: float = Field(ge=0, le=1)
+
+
+class TrackLinksOut(BaseModel):
+    links: list[TrackLinkOut] = []
+    # Chains of tracks that would be one player, in time order.
+    groups: list[list[int]] = []
+
+
 class AnalysisResponse(BaseModel):
     """Body of POST /api/analyze and /api/analyze/simulation."""
     status: Literal["COMPLETED"]
@@ -101,6 +121,7 @@ class AnalysisResponse(BaseModel):
     tracking: list[dict[str, Any]]
     # Best crop of each track (track_crops.py), so the staff can recognise who is who: JPEG in base64.
     track_snapshots: list[dict[str, Any]] = []
+    track_links: TrackLinksOut = TrackLinksOut()
     tactical_indicators: list[TacticalIndicatorOut]
     # Graph of supports between team-mates in the busiest frame (proximity_graph.py), with BFS hops.
     proximity_network: dict[str, Any] | None = None
