@@ -231,6 +231,14 @@ más cercano, área del bloque, grupos de la red, hueco entre líneas, zona más
 a banda, radio de presión alrededor del balón o jugadores por delante del balón. Las posiciones son
 las de la imagen (no hay calibración de cancha): la app lo dice al mostrarla.
 
+### Ejercicios de entrenamiento (los pone el Backend, no la IA)
+
+Este servicio no inventa ejercicios. El Backend tiene un catálogo fijo con tres ejercicios por
+problema (`services/training_drills.py`: 12 problemas, 36 ejercicios) y los une a cada alerta guardada
+por su **título**: los 14 títulos que escribe este servicio llevan a 12 códigos (dos problemas tienen
+dos títulos según la fase). Por eso, si se cambia el título de una regla aquí, hay que cambiarlo
+también en `TITLE_TO_CODE` del Backend; si no, esa alerta queda sin ejercicios sugeridos.
+
 ## Lo que el equipo hizo bien (`strengths`)
 
 La respuesta trae también `strengths`: lo que cada equipo hizo bien, con el mismo formato que las
@@ -301,8 +309,8 @@ uvicorn main:app --reload --port 8001
 La primera vez descarga `yolo26n.onnx` (~10 MB) desde los releases oficiales de Ultralytics
 a la carpeta `models/` (ignorada por git).
 
-Tests: `python -m pytest -q`
-(opcional: `PEOPLE_IMAGE_PATH=ruta/a/foto_con_personas.jpg` para el test de detección real).
+Tests: `python -m pytest -q` (157 pasan y 1 se omite: el de detección sobre una foto real, que
+solo corre con `PEOPLE_IMAGE_PATH=ruta/a/foto_con_personas.jpg`).
 
 ## ¿Por qué ONNX y no PyTorch por defecto?
 
@@ -336,6 +344,10 @@ contra la ejecución `.pt` en PyTorch (ver `MODEL_EVALUATION.md`). Para RT-DETR 
 - Árbitros y arqueros: el color no distingue al arquero del árbitro cuando solo uno está en plano,
   una persona del banquillo junto a la línea también tiene una camiseta "de ningún equipo", y una
   camiseta verde no se puede medir (el verde se toma como césped).
+- La IA no sabe quién es cada jugador: entrega trayectorias con un ID numérico. El dorsal lo pone una
+  persona en la app, y con esas identificaciones el Backend y la base de datos calculan las
+  estadísticas de cada jugador (tiempo en video, detecciones, partidos); este servicio no guarda
+  resultados.
 
 ## Render
 
