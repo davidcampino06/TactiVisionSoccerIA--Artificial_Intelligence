@@ -51,10 +51,6 @@ class ModelSpec:
     description: str
 
     @property
-    def onnx_file_name(self) -> str | None:
-        return self.onnx_url.rsplit("/", 1)[-1] if self.onnx_url else None
-
-    @property
     def weights_file_name(self) -> str | None:
         return self.weights_url.rsplit("/", 1)[-1] if self.weights_url else None
 
